@@ -26,8 +26,14 @@ more implementations, so stages can be swapped or mocked independently.
 - **Fetcher** — reads a source definition and returns a list of
   `Article` domain objects. Current/only implementation wraps
   `feedparser` for RSS/Atom feeds.
-- **Repository (dedup store)** — checks whether an article (by URL hash)
-  has already been sent, and records new sends. Backed by Postgres.
+- **Repository (dedup store)** — checks whether an article (by a hash of
+  its canonicalized URL, computed in `dedup.py`) has already been sent
+  **on a given channel**, and records new sends. Backed by Postgres,
+  with a `(key, channel)` unique constraint so the same article can be
+  independently tracked per Discord/Telegram. An article is only marked
+  seen for a channel after it has actually been sent there — if sending
+  fails, it stays eligible for a retry on the next cycle instead of
+  being silently dropped.
 - **Filter** — takes a list of articles and returns the subset (optionally
   summarized) that should be forwarded. Default is a no-op pass-through;
   another implementation will call an LLM to classify/summarize
@@ -46,11 +52,12 @@ more implementations, so stages can be swapped or mocked independently.
 src/smartnews/
   config.py           # load & validate config.yaml (pydantic models)
   models.py            # Article domain model
+  dedup.py             # article_key(): canonical-URL hash used as the dedup key
   fetching/
     base.py            # Fetcher interface
     rss.py              # feedparser-based implementation
   repository/
-    base.py            # Repository interface (dedup store)
+    base.py            # SeenStore interface (dedup store, per channel)
     postgres.py         # Postgres implementation
   filtering/
     base.py            # Filter interface
@@ -74,12 +81,15 @@ config/
    a. Fetch: for every source with `enabled: true`, fetch its feed and
       parse entries into `Article` objects.
    b. Aggregate: merge articles from all sources into one list.
-   c. Dedup: look up each article's URL hash in Postgres; drop ones
-      already sent.
-   d. Filter: run the remaining articles through the configured
-      `Filter` implementation.
-   e. Send: pass the surviving articles to each active `Notifier`.
-   f. Record: mark the sent articles as seen in Postgres.
+   c. Filter: run the articles through the configured `Filter`
+      implementation.
+   d. For each active `Notifier` (its own channel, e.g. `"discord"`,
+      `"telegram"`):
+      i. Dedup: compute each article's key (`dedup.py`) and ask the
+         `SeenStore` which ones are not yet seen on this channel.
+      ii. Send: pass the still-unseen articles to this notifier.
+      iii. Record: for the articles that were sent successfully, mark
+           them seen on this channel in Postgres.
 3. The process keeps running, repeating step 2 on the configured
    interval, until stopped.
 
