@@ -8,3 +8,5 @@ class Article:
     source: str
     published_at: str | None
     summary: str | None
+    thumbnail: str | None = None
+    category: str | None = None
