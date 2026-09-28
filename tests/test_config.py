@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from smartnews.config import load_sources
+from smartnews.config import load_notifiers, load_sources
 
 
 def write_sources_yaml(tmp_path: Path, content: str) -> Path:
@@ -46,3 +46,66 @@ def test_load_sources_defaults_enabled_to_true_when_omitted(tmp_path: Path) -> N
     sources = load_sources(path)
 
     assert sources[0].enabled is True
+
+
+def test_load_sources_parses_minimum_posts_when_provided(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources:
+          - name: example-blog
+            url: https://example.com/feed.xml
+            minimum_posts: 3
+        """,
+    )
+
+    sources = load_sources(path)
+
+    assert sources[0].minimum_posts == 3
+
+
+def test_load_sources_defaults_minimum_posts_to_none_when_omitted(
+    tmp_path: Path,
+) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources:
+          - name: example-blog
+            url: https://example.com/feed.xml
+        """,
+    )
+
+    sources = load_sources(path)
+
+    assert sources[0].minimum_posts is None
+
+
+def test_load_notifiers_parses_enabled_flag_per_channel(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        notifiers:
+          discord:
+            enabled: true
+          telegram:
+            enabled: false
+        """,
+    )
+
+    notifiers = load_notifiers(path)
+
+    assert notifiers.discord.enabled is True
+    assert notifiers.telegram.enabled is False
+
+
+def test_load_notifiers_defaults_to_all_disabled_when_section_missing(
+    tmp_path: Path,
+) -> None:
+    path = write_sources_yaml(tmp_path, "sources: []\n")
+
+    notifiers = load_notifiers(path)
+
+    assert notifiers.discord.enabled is False
+    assert notifiers.telegram.enabled is False

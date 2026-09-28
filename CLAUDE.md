@@ -40,9 +40,16 @@ more implementations, so stages can be swapped or mocked independently.
   (provider not decided yet — kept behind the interface).
 - **Notifier** — sends a list of articles to a destination channel.
   Implementations: `DiscordNotifier` (webhook), `TelegramNotifier` (bot
-  API). Which notifier(s) are active is controlled by config.
+  API). Which notifier(s) are active is controlled by
+  `notifiers.<channel>.enabled` in `config/sources.yaml`; credentials
+  (webhook URL, bot token, chat id) come from environment variables, not
+  the YAML file, so they never get committed. `notifiers/factory.py`
+  builds the active `Notifier` list from config + env, raising a clear
+  error if a channel is enabled but its env vars are missing.
 - **Pipeline** — orchestrates one fetch -> dedup -> filter -> send cycle
-  using whichever implementations are wired in.
+  using whichever implementations are wired in. `main()` currently falls
+  back to printing articles to stdout when no notifier is enabled, so
+  the service still runs without any external setup.
 - **Scheduler** — runs the pipeline on a configured interval, keeping the
   process alive as a long-running service.
 
@@ -66,6 +73,7 @@ src/smartnews/
     base.py            # Notifier interface
     discord.py
     telegram.py
+    factory.py           # builds active notifiers from config + env vars
   pipeline.py           # one fetch -> dedup -> filter -> send cycle
   scheduler.py           # runs the pipeline on an interval
   __init__.py            # main() entrypoint / service bootstrap
@@ -107,5 +115,26 @@ sources:
     enabled: false
 ```
 
-Only sources with `enabled: true` are fetched. Notifier and filter
-settings will be added to this file as those stages are implemented.
+Only sources with `enabled: true` are fetched.
+
+The same file also controls which notifiers are active:
+
+```yaml
+notifiers:
+  discord:
+    enabled: false
+  telegram:
+    enabled: false
+```
+
+Credentials are never stored in this file; they're read from environment
+variables at startup, only for the channels that are enabled:
+
+- Discord: `DISCORD_WEBHOOK_URL`
+- Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+
+Whenever at least one notifier is enabled, `DATABASE_URL` (a Postgres
+connection string) is also required, since dedup state is stored there.
+
+Filter settings will be added to this file once that stage is
+implemented.

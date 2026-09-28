@@ -12,6 +12,7 @@ dependencies = [
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
     "pyyaml>=6.0.3",
+    "requests>=2.34.2",
 ]
 
 [project.scripts]
@@ -28,6 +29,7 @@ testpaths = ["tests"]
 dev = [
     "ipython>=9.17.1",
     "pytest>=9.1.1",
+    "pytest-httpserver>=1.1.5",
     "ruff>=0.16.8",
     "testcontainers[postgres]>=4.15.0",
 ]

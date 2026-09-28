@@ -8,8 +8,23 @@ class SourceConfig(BaseModel):
     name: str
     url: str
     enabled: bool = True
+    minimum_posts: int | None = None
+
+
+class NotifierConfig(BaseModel):
+    enabled: bool = False
+
+
+class NotifiersConfig(BaseModel):
+    discord: NotifierConfig = NotifierConfig()
+    telegram: NotifierConfig = NotifierConfig()
 
 
 def load_sources(path: Path) -> list[SourceConfig]:
     data = yaml.safe_load(path.read_text())
     return [SourceConfig(**item) for item in data["sources"]]
+
+
+def load_notifiers(path: Path) -> NotifiersConfig:
+    data = yaml.safe_load(path.read_text())
+    return NotifiersConfig(**data.get("notifiers", {}))
