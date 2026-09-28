@@ -31,3 +31,26 @@ def test_print_articles_prints_one_line_per_article(
         "[example-blog] Hello World - https://example.com/hello-world\n"
         "[another-source] Second Post - https://example.com/second-post\n"
     )
+
+
+def test_print_articles_includes_thumbnail_when_present(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    articles = [
+        Article(
+            title="Hello World",
+            url="https://example.com/hello-world",
+            source="example-blog",
+            published_at=None,
+            summary=None,
+            thumbnail="https://example.com/hello-world.jpg",
+        )
+    ]
+
+    print_articles(articles)
+
+    out = capsys.readouterr().out
+    assert out == (
+        "[example-blog] Hello World - https://example.com/hello-world "
+        "- https://example.com/hello-world.jpg\n"
+    )

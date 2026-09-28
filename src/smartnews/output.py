@@ -3,4 +3,7 @@ from smartnews.models import Article
 
 def print_articles(articles: list[Article]) -> None:
     for article in articles:
-        print(f"[{article.source}] {article.title} - {article.url}")
+        line = f"[{article.source}] {article.title} - {article.url}"
+        if article.thumbnail:
+            line += f" - {article.thumbnail}"
+        print(line)
