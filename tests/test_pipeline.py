@@ -1,7 +1,15 @@
+import logging
+
+import pytest
+
 from smartnews.config import SourceConfig
 from smartnews.dedup import article_key
 from smartnews.models import Article
-from smartnews.pipeline import fetch_enabled_sources, filter_unseen_articles
+from smartnews.pipeline import (
+    dispatch_to_notifiers,
+    fetch_enabled_sources,
+    filter_unseen_articles,
+)
 
 
 class FakeFetcher:
@@ -50,6 +58,24 @@ def test_fetch_enabled_sources_aggregates_articles_from_all_enabled_sources() ->
     assert [a.source for a in articles] == ["first", "second"]
 
 
+def test_fetch_enabled_sources_logs_progress_per_source_and_total(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sources = [
+        SourceConfig(name="first", url="https://a.example.com/feed", enabled=True),
+        SourceConfig(name="second", url="https://b.example.com/feed", enabled=True),
+    ]
+    fetcher = FakeFetcher()
+
+    with caplog.at_level(logging.INFO):
+        fetch_enabled_sources(sources, fetcher)
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("first" in message for message in messages)
+    assert any("second" in message for message in messages)
+    assert any("2" in message for message in messages)
+
+
 class FakeSeenStore:
     def __init__(self) -> None:
         self.seen: set[tuple[str, str]] = set()
@@ -61,10 +87,8 @@ class FakeSeenStore:
         self.seen.add((key, channel))
 
 
-def make_article(url: str, title: str = "title") -> Article:
-    return Article(
-        title=title, url=url, source="example", published_at=None, summary=None
-    )
+def make_article(url: str, title: str = "title", source: str = "example") -> Article:
+    return Article(title=title, url=url, source=source, published_at=None, summary=None)
 
 
 def test_filter_unseen_articles_keeps_articles_not_yet_seen_on_channel() -> None:
@@ -102,3 +126,195 @@ def test_filter_unseen_articles_is_scoped_per_channel() -> None:
     )
 
     assert unseen_on_telegram == [article]
+
+
+class FakeNotifier:
+    def __init__(
+        self, channel: str, *, fail_urls: frozenset[str] = frozenset()
+    ) -> None:
+        self.channel = channel
+        self.sent: list[Article] = []
+        self._fail_urls = fail_urls
+
+    def send(self, articles: list[Article]) -> None:
+        for article in articles:
+            if article.url in self._fail_urls:
+                raise RuntimeError("boom")
+            self.sent.append(article)
+
+
+def test_dispatch_to_notifiers_sends_unseen_articles_and_marks_them_seen() -> None:
+    article = make_article("https://example.com/a")
+    notifier = FakeNotifier("discord")
+    seen_store = FakeSeenStore()
+
+    dispatch_to_notifiers([article], [notifier], seen_store, sources=[])
+
+    assert notifier.sent == [article]
+    assert seen_store.filter_unseen([article_key(article)], "discord") == set()
+
+
+def test_dispatch_to_notifiers_skips_send_when_nothing_unseen() -> None:
+    article = make_article("https://example.com/a")
+    notifier = FakeNotifier("discord")
+    seen_store = FakeSeenStore()
+    seen_store.mark_seen(article_key(article), "discord")
+
+    dispatch_to_notifiers([article], [notifier], seen_store, sources=[])
+
+    assert notifier.sent == []
+
+
+def test_dispatch_to_notifiers_logs_how_many_were_sent_per_channel(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    article = make_article("https://example.com/a")
+    notifier = FakeNotifier("discord")
+    seen_store = FakeSeenStore()
+
+    with caplog.at_level(logging.INFO):
+        dispatch_to_notifiers([article], [notifier], seen_store, sources=[])
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("discord" in message and "1" in message for message in messages)
+
+
+def test_dispatch_to_notifiers_logs_when_nothing_to_send(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    article = make_article("https://example.com/a")
+    notifier = FakeNotifier("discord")
+    seen_store = FakeSeenStore()
+    seen_store.mark_seen(article_key(article), "discord")
+
+    with caplog.at_level(logging.INFO):
+        dispatch_to_notifiers([article], [notifier], seen_store, sources=[])
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("discord" in message for message in messages)
+
+
+def test_dispatch_to_notifiers_does_not_mark_seen_when_send_fails() -> None:
+    article = make_article("https://example.com/a")
+    notifier = FakeNotifier("discord", fail_urls=frozenset({article.url}))
+    seen_store = FakeSeenStore()
+
+    dispatch_to_notifiers([article], [notifier], seen_store, sources=[])
+
+    assert notifier.sent == []
+    assert seen_store.filter_unseen([article_key(article)], "discord") == {
+        article_key(article)
+    }
+
+
+def test_dispatch_to_notifiers_marks_earlier_successes_seen_when_a_later_send_fails() -> (
+    None
+):
+    articles = [
+        make_article("https://example.com/0"),
+        make_article("https://example.com/1"),
+        make_article("https://example.com/2"),
+    ]
+    notifier = FakeNotifier("discord", fail_urls=frozenset({"https://example.com/1"}))
+    seen_store = FakeSeenStore()
+
+    dispatch_to_notifiers(articles, [notifier], seen_store, sources=[])
+
+    assert notifier.sent == [articles[0], articles[2]]
+    assert seen_store.filter_unseen(
+        [article_key(article) for article in articles], "discord"
+    ) == {article_key(articles[1])}
+
+
+def test_dispatch_to_notifiers_still_dispatches_to_other_notifiers_when_one_fails() -> (
+    None
+):
+    article = make_article("https://example.com/a")
+    discord = FakeNotifier("discord", fail_urls=frozenset({article.url}))
+    telegram = FakeNotifier("telegram")
+    seen_store = FakeSeenStore()
+
+    dispatch_to_notifiers([article], [discord, telegram], seen_store, sources=[])
+
+    assert discord.sent == []
+    assert telegram.sent == [article]
+    assert seen_store.filter_unseen([article_key(article)], "telegram") == set()
+
+
+def test_dispatch_to_notifiers_logs_error_when_send_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    article = make_article("https://example.com/a")
+    notifier = FakeNotifier("discord", fail_urls=frozenset({article.url}))
+    seen_store = FakeSeenStore()
+
+    with caplog.at_level(logging.ERROR):
+        dispatch_to_notifiers([article], [notifier], seen_store, sources=[])
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("discord" in message and article.url in message for message in messages)
+
+
+def test_dispatch_to_notifiers_limits_articles_to_sources_minimum_posts() -> None:
+    articles = [
+        make_article("https://example.com/0", source="hacker-news"),
+        make_article("https://example.com/1", source="hacker-news"),
+        make_article("https://example.com/2", source="hacker-news"),
+    ]
+    notifier = FakeNotifier("discord")
+    seen_store = FakeSeenStore()
+    sources = [SourceConfig(name="hacker-news", url="https://a", minimum_posts=2)]
+
+    dispatch_to_notifiers(articles, [notifier], seen_store, sources=sources)
+
+    assert notifier.sent == articles[:2]
+    assert seen_store.filter_unseen(
+        [article_key(article) for article in articles], "discord"
+    ) == {article_key(articles[2])}
+
+
+def test_dispatch_to_notifiers_sends_all_unseen_when_source_has_no_minimum_posts() -> (
+    None
+):
+    articles = [
+        make_article("https://example.com/0", source="hacker-news"),
+        make_article("https://example.com/1", source="hacker-news"),
+    ]
+    notifier = FakeNotifier("discord")
+    seen_store = FakeSeenStore()
+
+    dispatch_to_notifiers(articles, [notifier], seen_store, sources=[])
+
+    assert notifier.sent == articles
+
+
+def test_dispatch_to_notifiers_applies_minimum_posts_independently_per_source() -> None:
+    articles = [
+        make_article("https://example.com/a0", source="source-a"),
+        make_article("https://example.com/a1", source="source-a"),
+        make_article("https://example.com/b0", source="source-b"),
+        make_article("https://example.com/b1", source="source-b"),
+    ]
+    notifier = FakeNotifier("discord")
+    seen_store = FakeSeenStore()
+    sources = [
+        SourceConfig(name="source-a", url="https://a", minimum_posts=1),
+        SourceConfig(name="source-b", url="https://b", minimum_posts=2),
+    ]
+
+    dispatch_to_notifiers(articles, [notifier], seen_store, sources=sources)
+
+    assert notifier.sent == [articles[0], articles[2], articles[3]]
+
+
+def test_dispatch_to_notifiers_handles_each_notifier_independently() -> None:
+    article = make_article("https://example.com/a")
+    discord = FakeNotifier("discord")
+    telegram = FakeNotifier("telegram")
+    seen_store = FakeSeenStore()
+    seen_store.mark_seen(article_key(article), "discord")
+
+    dispatch_to_notifiers([article], [discord, telegram], seen_store, sources=[])
+
+    assert discord.sent == []
+    assert telegram.sent == [article]

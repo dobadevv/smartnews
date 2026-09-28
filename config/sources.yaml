@@ -2,22 +2,65 @@ sources:
   - name: hacker-news
     url: https://hnrss.org/frontpage
     enabled: true
-  # web dev / techstack
-  - name: css-tricks
-    url: https://css-tricks.com/feed/
+    minimum_posts: 1
+
+  - name: high-scalability
+    url: https://highscalability.com/feed/
     enabled: true
+    minimum_posts: 1
+
+  - name: cloudflare-blog
+    url: https://blog.cloudflare.com/rss/
+    enabled: true
+    minimum_posts: 1
+
+  - name: infoq
+    url: https://www.infoq.com/feed
+    enabled: true
+    minimum_posts: 1
+
+  - name: aws-architecture-blog
+    url: https://aws.amazon.com/blogs/architecture/feed/
+    enabled: true
+    minimum_posts: 1
+
+  - name: martin-fowler
+    url: https://martinfowler.com/feed.atom
+    enabled: true
+    minimum_posts: 1
+
   - name: smashing-magazine
     url: https://www.smashingmagazine.com/feed/
     enabled: true
-  # crypto
-  - name: decrypt
-    url: https://decrypt.co/feed
+    minimum_posts: 1
+
+  - name: web-dev
+    url: https://web.dev/feed.xml
     enabled: true
-  # AI
-  - name: ai-news
-    url: https://www.artificialintelligence-news.com/feed/
+    minimum_posts: 1
+
+  - name: josh-comeau
+    url: https://www.joshwcomeau.com/rss.xml
     enabled: true
-  # LLM
-  - name: simon-willison
-    url: https://simonwillison.net/atom/everything/
+    minimum_posts: 1
+
+  - name: node-weekly
+    url: https://nodeweekly.com/rss
     enabled: true
+    minimum_posts: 1
+
+  - name: typescript-blog
+    url: https://devblogs.microsoft.com/typescript/feed/
+    enabled: true
+    minimum_posts: 1
+
+  - name: lobsters
+    url: https://lobste.rs/rss
+    enabled: true
+    minimum_posts: 1
+
+notifiers:
+  discord:
+    enabled: true
+  telegram:
+    enabled: false 
