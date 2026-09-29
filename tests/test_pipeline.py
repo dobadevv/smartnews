@@ -9,6 +9,8 @@ from smartnews.pipeline import (
     dispatch_to_notifiers,
     fetch_enabled_sources,
     filter_unseen_articles,
+    limit_to_minimum_posts,
+    select_unseen_for_any_channel,
 )
 
 
@@ -318,3 +320,96 @@ def test_dispatch_to_notifiers_handles_each_notifier_independently() -> None:
 
     assert discord.sent == []
     assert telegram.sent == [article]
+
+
+def test_select_unseen_for_any_channel_keeps_article_unseen_on_at_least_one_channel() -> (
+    None
+):
+    article = make_article("https://example.com/a")
+    seen_store = FakeSeenStore()
+    seen_store.mark_seen(article_key(article), "discord")
+    notifiers = [FakeNotifier("discord"), FakeNotifier("telegram")]
+
+    result = select_unseen_for_any_channel([article], seen_store, notifiers)
+
+    assert result == [article]
+
+
+def test_select_unseen_for_any_channel_drops_article_seen_on_every_channel() -> None:
+    article = make_article("https://example.com/a")
+    seen_store = FakeSeenStore()
+    seen_store.mark_seen(article_key(article), "discord")
+    seen_store.mark_seen(article_key(article), "telegram")
+    notifiers = [FakeNotifier("discord"), FakeNotifier("telegram")]
+
+    result = select_unseen_for_any_channel([article], seen_store, notifiers)
+
+    assert result == []
+
+
+def test_select_unseen_for_any_channel_preserves_order_without_duplicates() -> None:
+    articles = [
+        make_article("https://example.com/0"),
+        make_article("https://example.com/1"),
+        make_article("https://example.com/2"),
+    ]
+    seen_store = FakeSeenStore()
+    seen_store.mark_seen(article_key(articles[1]), "discord")
+    seen_store.mark_seen(article_key(articles[1]), "telegram")
+    notifiers = [FakeNotifier("discord"), FakeNotifier("telegram")]
+
+    result = select_unseen_for_any_channel(articles, seen_store, notifiers)
+
+    assert result == [articles[0], articles[2]]
+
+
+def test_select_unseen_for_any_channel_returns_all_articles_when_no_notifiers() -> None:
+    articles = [make_article("https://example.com/a")]
+    seen_store = FakeSeenStore()
+
+    result = select_unseen_for_any_channel(articles, seen_store, [])
+
+    assert result == articles
+
+
+def test_limit_to_minimum_posts_caps_articles_per_source() -> None:
+    articles = [
+        make_article("https://example.com/0", source="hacker-news"),
+        make_article("https://example.com/1", source="hacker-news"),
+        make_article("https://example.com/2", source="hacker-news"),
+    ]
+    sources = [SourceConfig(name="hacker-news", url="https://a", minimum_posts=2)]
+
+    result = limit_to_minimum_posts(articles, sources)
+
+    assert result == articles[:2]
+
+
+def test_limit_to_minimum_posts_leaves_source_unbounded_when_no_minimum_configured() -> (
+    None
+):
+    articles = [
+        make_article("https://example.com/0", source="hacker-news"),
+        make_article("https://example.com/1", source="hacker-news"),
+    ]
+
+    result = limit_to_minimum_posts(articles, sources=[])
+
+    assert result == articles
+
+
+def test_limit_to_minimum_posts_applies_independently_per_source() -> None:
+    articles = [
+        make_article("https://example.com/a0", source="source-a"),
+        make_article("https://example.com/a1", source="source-a"),
+        make_article("https://example.com/b0", source="source-b"),
+        make_article("https://example.com/b1", source="source-b"),
+    ]
+    sources = [
+        SourceConfig(name="source-a", url="https://a", minimum_posts=1),
+        SourceConfig(name="source-b", url="https://b", minimum_posts=2),
+    ]
+
+    result = limit_to_minimum_posts(articles, sources)
+
+    assert result == [articles[0], articles[2], articles[3]]

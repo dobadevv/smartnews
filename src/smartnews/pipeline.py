@@ -36,17 +36,31 @@ def filter_unseen_articles(
     return [article for article, key in zip(articles, keys) if key in unseen_keys]
 
 
+def select_unseen_for_any_channel(
+    articles: list[Article], seen_store: SeenStore, notifiers: list[Notifier]
+) -> list[Article]:
+    if not notifiers:
+        return list(articles)
+    keys = [article_key(article) for article in articles]
+    unseen_keys: set[str] = set()
+    for notifier in notifiers:
+        unseen_keys |= seen_store.filter_unseen(keys, notifier.channel)
+    return [article for article, key in zip(articles, keys) if key in unseen_keys]
+
+
+def limit_to_minimum_posts(
+    articles: list[Article], sources: list[SourceConfig]
+) -> list[Article]:
+    return _limit_to_minimum_posts(articles, _minimum_posts_by_source(sources))
+
+
 def dispatch_to_notifiers(
     articles: list[Article],
     notifiers: list[Notifier],
     seen_store: SeenStore,
     sources: list[SourceConfig],
 ) -> None:
-    minimum_posts_by_source = {
-        source.name: source.minimum_posts
-        for source in sources
-        if source.minimum_posts is not None
-    }
+    minimum_posts_by_source = _minimum_posts_by_source(sources)
     for notifier in notifiers:
         unseen = filter_unseen_articles(articles, seen_store, notifier.channel)
         batch = _limit_to_minimum_posts(unseen, minimum_posts_by_source)
@@ -74,6 +88,14 @@ def _send_and_mark_seen(
         seen_store.mark_seen(article_key(article), notifier.channel)
         sent_count += 1
     return sent_count
+
+
+def _minimum_posts_by_source(sources: list[SourceConfig]) -> dict[str, int]:
+    return {
+        source.name: source.minimum_posts
+        for source in sources
+        if source.minimum_posts is not None
+    }
 
 
 def _limit_to_minimum_posts(

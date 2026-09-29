@@ -100,12 +100,26 @@ config/
    a. Fetch: for every source with `enabled: true`, fetch its feed and
       parse entries into `Article` objects.
    b. Aggregate: merge articles from all sources into one list.
-   c. Filter: run the articles through the configured `Filter`
-      implementation.
-   d. For each active `Notifier` (its own channel, e.g. `"discord"`,
+   c. If no notifier is enabled, run the whole batch through the
+      configured `Filter` and print it to stdout — there's no dedup
+      store to check against in this fallback mode.
+   d. Otherwise, before calling the LLM at all:
+      i. Dedup: keep only articles still unseen on at least one enabled
+         channel (`select_unseen_for_any_channel`, union across
+         notifiers), so the filter never re-translates an article every
+         channel has already received.
+      ii. Cap: limit each source's remaining articles to its configured
+          `minimum_posts` (`limit_to_minimum_posts`), since that's the
+          most any single channel will ever send from that source in one
+          cycle — translating more than that is wasted LLM work.
+      iii. Filter: run the capped, still-unseen articles through the
+           configured `Filter` implementation.
+   e. For each active `Notifier` (its own channel, e.g. `"discord"`,
       `"telegram"`):
-      i. Dedup: compute each article's key (`dedup.py`) and ask the
-         `SeenStore` which ones are not yet seen on this channel.
+      i. Dedup again: compute each article's key (`dedup.py`) and ask
+         the `SeenStore` which ones are not yet seen on *this* channel
+         — step d.i only guarantees unseen on at least one channel, not
+         this specific one.
       ii. Send: pass the still-unseen articles to this notifier.
       iii. Record: for the articles that were sent successfully, mark
            them seen on this channel in Postgres.
