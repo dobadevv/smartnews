@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterator
+from datetime import UTC, datetime
 
 from smartnews.config import SourceConfig
 from smartnews.dedup import article_key
@@ -26,6 +27,18 @@ def stream_enabled_sources(
             continue
         logger.info("fetched %d article(s) from %s", len(fetched), source.name)
         yield from fetched
+
+
+def stream_published_in_current_month(
+    articles: Iterator[Article], now: datetime | None = None
+) -> Iterator[Article]:
+    current = now or datetime.now(UTC)
+    for article in articles:
+        published_at = article.published_at
+        if published_at is None or (
+            published_at.year == current.year and published_at.month == current.month
+        ):
+            yield article
 
 
 def stream_unseen_capped_to_max_posts(

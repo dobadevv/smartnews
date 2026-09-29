@@ -10,6 +10,7 @@ from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
     stream_enabled_sources,
+    stream_published_in_current_month,
     stream_translated,
     stream_unseen_capped_to_max_posts,
 )
@@ -37,7 +38,8 @@ def main() -> None:
         [notifier.channel for notifier in notifiers],
     )
 
-    articles = stream_enabled_sources(sources, RssFetcher())
+    fetched = stream_enabled_sources(sources, RssFetcher())
+    articles = stream_published_in_current_month(fetched)
     article_filter = build_filter(load_filter(DEFAULT_CONFIG_PATH))
 
     if not notifiers:

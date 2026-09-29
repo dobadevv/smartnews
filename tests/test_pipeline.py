@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 
 import pytest
 
@@ -9,6 +10,7 @@ from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
     stream_enabled_sources,
+    stream_published_in_current_month,
     stream_translated,
     stream_unseen_capped_to_max_posts,
 )
@@ -36,8 +38,15 @@ class FakeFetcher:
         ]
 
 
-def make_article(url: str, title: str = "title", source: str = "example") -> Article:
-    return Article(title=title, url=url, source=source, published_at=None, summary=None)
+def make_article(
+    url: str,
+    title: str = "title",
+    source: str = "example",
+    published_at: datetime | None = None,
+) -> Article:
+    return Article(
+        title=title, url=url, source=source, published_at=published_at, summary=None
+    )
 
 
 def test_stream_enabled_sources_skips_disabled_sources() -> None:
@@ -131,6 +140,62 @@ def test_stream_enabled_sources_logs_the_fetch_failure(
 
     messages = [record.getMessage() for record in caplog.records]
     assert any("broken" in message for message in messages)
+
+
+def test_stream_published_in_current_month_keeps_article_published_this_month() -> None:
+    now = datetime(2026, 9, 15, tzinfo=UTC)
+    article = make_article(
+        "https://example.com/a", published_at=datetime(2026, 9, 1, tzinfo=UTC)
+    )
+
+    result = list(stream_published_in_current_month([article], now=now))
+
+    assert result == [article]
+
+
+def test_stream_published_in_current_month_drops_article_published_last_month() -> None:
+    now = datetime(2026, 9, 15, tzinfo=UTC)
+    article = make_article(
+        "https://example.com/a", published_at=datetime(2026, 8, 31, tzinfo=UTC)
+    )
+
+    result = list(stream_published_in_current_month([article], now=now))
+
+    assert result == []
+
+
+def test_stream_published_in_current_month_drops_article_from_the_same_month_last_year() -> (
+    None
+):
+    now = datetime(2026, 1, 15, tzinfo=UTC)
+    article = make_article(
+        "https://example.com/a", published_at=datetime(2025, 1, 20, tzinfo=UTC)
+    )
+
+    result = list(stream_published_in_current_month([article], now=now))
+
+    assert result == []
+
+
+def test_stream_published_in_current_month_keeps_article_with_unknown_published_date() -> (
+    None
+):
+    now = datetime(2026, 9, 15, tzinfo=UTC)
+    article = make_article("https://example.com/a", published_at=None)
+
+    result = list(stream_published_in_current_month([article], now=now))
+
+    assert result == [article]
+
+
+def test_stream_published_in_current_month_defaults_to_the_real_current_month() -> None:
+    article = make_article(
+        "https://example.com/a", published_at=datetime.now(UTC)
+    )
+
+    result = list(stream_published_in_current_month([article]))
+
+    assert result == [article]
 
 
 class FakeSeenStore:

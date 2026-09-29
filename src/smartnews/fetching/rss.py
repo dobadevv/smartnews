@@ -1,4 +1,6 @@
+import calendar
 import re
+from datetime import UTC, datetime
 
 import feedparser
 
@@ -15,12 +17,20 @@ class RssFetcher:
                 title=entry.get("title", ""),
                 url=entry.get("link", ""),
                 source=source.name,
-                published_at=entry.get("published"),
+                published_at=self._parse_published_at(entry),
                 summary=html_to_text(entry.get("summary")),
                 thumbnail=self._extract_thumbnail(entry),
             )
             for entry in parsed.entries
         ]
+
+    def _parse_published_at(self, entry: dict) -> datetime | None:
+        published_parsed = entry.get("published_parsed")
+        if published_parsed is None:
+            return None
+        return datetime.fromtimestamp(
+            calendar.timegm(published_parsed), tz=UTC
+        )
 
     def _extract_thumbnail(self, entry: dict) -> str | None:
         # media:content with medium="image" or image type — e.g. High Scalability
