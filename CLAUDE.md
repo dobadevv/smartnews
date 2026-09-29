@@ -34,10 +34,17 @@ more implementations, so stages can be swapped or mocked independently.
   seen for a channel after it has actually been sent there — if sending
   fails, it stays eligible for a retry on the next cycle instead of
   being silently dropped.
-- **Filter** — takes a list of articles and returns the subset (optionally
-  summarized) that should be forwarded. Default is a no-op pass-through;
-  another implementation will call an LLM to classify/summarize
-  (provider not decided yet — kept behind the interface).
+- **Filter** — takes a list of articles and returns the (possibly
+  rewritten) list that should be forwarded. Default is `PassthroughFilter`
+  (no-op). `GeminiFilter` and `GroqFilter` both call a free-tier LLM API to
+  rewrite each article's title/summary: translated to Vietnamese, technical
+  terms (product names, languages, frameworks, acronyms like API/LLM/SDK)
+  left untranslated, and the summary rewritten as a brief 1-2 sentence
+  overview; both share the same prompt via `filtering/prompts.py`. A
+  failed call for one article is logged and that article is kept with its
+  original title/summary rather than dropped. `filtering/factory.py` builds the
+  active `Filter` from config + env (dispatching on `filter.provider`),
+  same pattern as notifiers.
 - **Notifier** — sends a list of articles to a destination channel.
   Implementations: `DiscordNotifier` (webhook), `TelegramNotifier` (bot
   API). Which notifier(s) are active is controlled by
@@ -69,6 +76,10 @@ src/smartnews/
   filtering/
     base.py            # Filter interface
     passthrough.py      # no-op filter (default)
+    prompts.py            # shared translate + brief-summary prompt
+    gemini.py            # Gemini-backed filter
+    groq.py               # Groq-backed filter (OpenAI-compatible API)
+    factory.py           # builds the active filter from config + env vars
   notifiers/
     base.py            # Notifier interface
     discord.py
@@ -136,5 +147,20 @@ variables at startup, only for the channels that are enabled:
 Whenever at least one notifier is enabled, `DATABASE_URL` (a Postgres
 connection string) is also required, since dedup state is stored there.
 
-Filter settings will be added to this file once that stage is
-implemented.
+The same file also controls whether the LLM filter runs:
+
+```yaml
+filter:
+  enabled: false
+  provider: gemini            # "gemini" (default) or "groq"
+  model: gemini-3.8-flash     # optional; defaults to the provider's own default
+```
+
+When enabled with `provider: gemini` (the default), `GEMINI_API_KEY` must
+be set (free tier key from https://aistudio.google.com/apikey). When
+enabled with `provider: groq`, `GROQ_API_KEY` must be set instead (free
+tier key from https://console.groq.com/keys) — Groq's free tier has
+noticeably higher rate limits, useful if Gemini's free-tier quota
+(20 requests/min on `gemini-3.8-flash`) gets exhausted by a single fetch
+batch. `model` lets you point at a different model for whichever provider
+is active, without a code change.

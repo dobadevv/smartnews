@@ -63,4 +63,9 @@ notifiers:
   discord:
     enabled: true
   telegram:
-    enabled: false 
+    enabled: false
+
+filter:
+  enabled: true
+  provider: groq
+  model: openai/gpt-oss-120b

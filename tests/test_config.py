@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from smartnews.config import load_notifiers, load_sources
+from smartnews.config import load_filter, load_notifiers, load_sources
 
 
 def write_sources_yaml(tmp_path: Path, content: str) -> Path:
@@ -109,3 +109,59 @@ def test_load_notifiers_defaults_to_all_disabled_when_section_missing(
 
     assert notifiers.discord.enabled is False
     assert notifiers.telegram.enabled is False
+
+
+def test_load_filter_parses_enabled_flag(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        filter:
+          enabled: true
+        """,
+    )
+
+    filter_config = load_filter(path)
+
+    assert filter_config.enabled is True
+
+
+def test_load_filter_defaults_to_disabled_when_section_missing(
+    tmp_path: Path,
+) -> None:
+    path = write_sources_yaml(tmp_path, "sources: []\n")
+
+    filter_config = load_filter(path)
+
+    assert filter_config.enabled is False
+
+
+def test_load_filter_parses_model_when_provided(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        filter:
+          enabled: true
+          model: gemini-3.8-flash
+        """,
+    )
+
+    filter_config = load_filter(path)
+
+    assert filter_config.model == "gemini-3.8-flash"
+
+
+def test_load_filter_defaults_model_to_none_when_omitted(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        filter:
+          enabled: true
+        """,
+    )
+
+    filter_config = load_filter(path)
+
+    assert filter_config.model is None
