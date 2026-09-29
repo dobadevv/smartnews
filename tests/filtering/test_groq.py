@@ -80,11 +80,11 @@ def test_filter_prompt_includes_title_and_summary(httpserver: HTTPServer) -> Non
     assert "Original summary text" in messages[0]["content"]
 
 
-def test_filter_keeps_original_article_when_request_fails(
+def test_filter_keeps_original_article_when_all_retries_fail(
     httpserver: HTTPServer, caplog: pytest.LogCaptureFixture
 ) -> None:
     httpserver.expect_request(ENDPOINT, method="POST").respond_with_response(
-        Response(status=500)
+        Response(status=500, headers={"Retry-After": "0.01"})
     )
     groq_filter = GroqFilter(api_key="fake-key", api_base_url=httpserver.url_for(""))
     article = make_article()
@@ -96,6 +96,23 @@ def test_filter_keeps_original_article_when_request_fails(
     messages = [record.getMessage() for record in caplog.records]
     assert any("500" in message for message in messages)
     assert not any("fake-key" in message for message in messages)
+
+
+def test_filter_recovers_from_a_transient_rate_limit_via_retry(
+    httpserver: HTTPServer,
+) -> None:
+    httpserver.expect_ordered_request(ENDPOINT, method="POST").respond_with_response(
+        Response(status=429, headers={"Retry-After": "0.01"})
+    )
+    httpserver.expect_ordered_request(ENDPOINT, method="POST").respond_with_json(
+        groq_response("Đã dịch", "Bản tóm tắt.")
+    )
+    groq_filter = GroqFilter(api_key="fake-key", api_base_url=httpserver.url_for(""))
+
+    result = groq_filter.filter(make_article(title="Original", summary="s1"))
+
+    assert result.title == "Đã dịch"
+    assert result.summary == "Bản tóm tắt."
 
 
 def test_filter_keeps_original_article_when_response_is_malformed(
@@ -112,11 +129,17 @@ def test_filter_keeps_original_article_when_response_is_malformed(
     assert result == article
 
 
-def test_filter_next_call_succeeds_after_a_previous_call_failed(
+def test_filter_next_call_is_unaffected_after_a_previous_call_exhausted_retries(
     httpserver: HTTPServer,
 ) -> None:
     httpserver.expect_ordered_request(ENDPOINT, method="POST").respond_with_response(
-        Response(status=500)
+        Response(status=500, headers={"Retry-After": "0.01"})
+    )
+    httpserver.expect_ordered_request(ENDPOINT, method="POST").respond_with_response(
+        Response(status=500, headers={"Retry-After": "0.01"})
+    )
+    httpserver.expect_ordered_request(ENDPOINT, method="POST").respond_with_response(
+        Response(status=500, headers={"Retry-After": "0.01"})
     )
     httpserver.expect_ordered_request(ENDPOINT, method="POST").respond_with_json(
         groq_response("Đã dịch", "Bản tóm tắt.")

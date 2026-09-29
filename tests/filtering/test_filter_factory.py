@@ -54,9 +54,8 @@ def test_build_filter_builds_groq_filter_from_env_when_provider_is_groq(
     result = build_filter(FilterConfig(enabled=True, provider="groq"))
 
     assert isinstance(result, GroqFilter)
-    assert result._api_key == "fake-key"
+    assert result._client.api_key == "fake-key"
     assert result._model == GROQ_DEFAULT_MODEL
-    assert result._url.endswith("chat/completions")
 
 
 def test_build_filter_uses_configured_model_for_groq(

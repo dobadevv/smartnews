@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 
-import requests
+from groq import APIStatusError, Groq
 
 from smartnews.filtering.prompts import build_translation_prompt
 from smartnews.models import Article
@@ -20,9 +20,8 @@ class GroqFilter:
         model: str = DEFAULT_MODEL,
         api_base_url: str = DEFAULT_API_BASE_URL,
     ) -> None:
-        self._api_key = api_key
         self._model = model
-        self._url = f"{api_base_url.rstrip('/')}/openai/v1/chat/completions"
+        self._client = Groq(api_key=api_key, base_url=api_base_url, max_retries=2)
 
     def filter(self, article: Article) -> Article:
         try:
@@ -33,28 +32,23 @@ class GroqFilter:
         return dataclasses.replace(article, title=title, summary=summary)
 
     def _request(self, article: Article) -> tuple[str, str]:
-        payload = {
-            "model": self._model,
-            "messages": [
-                {"role": "user", "content": build_translation_prompt(article)}
-            ],
-            "response_format": {"type": "json_object"},
-        }
-        response = requests.post(
-            self._url,
-            headers={"Authorization": f"Bearer {self._api_key}"},
-            json=payload,
-            timeout=15,
-        )
-        if not response.ok:
-            logger.error(
-                "groq request failed: status=%d payload=%s response=%s",
-                response.status_code,
-                payload,
-                response.text,
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "user", "content": build_translation_prompt(article)}
+                ],
+                response_format={"type": "json_object"},
+                timeout=15,
             )
-        response.raise_for_status()
+        except APIStatusError as error:
+            logger.error(
+                "groq request failed: status=%d response=%s",
+                error.status_code,
+                error.response.text,
+            )
+            raise
 
-        text = response.json()["choices"][0]["message"]["content"]
+        text = response.choices[0].message.content
         parsed = json.loads(text)
         return parsed["title"], parsed["summary"]
