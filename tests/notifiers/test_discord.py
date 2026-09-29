@@ -28,7 +28,7 @@ def test_send_posts_a_bare_embed_when_no_category_summary_or_thumbnail(
 
     embed = httpserver.log[0][0].get_json()["embeds"][0]
     assert embed == {
-        "title": "🔥🔥 Hello World 🔥🔥",
+        "title": "Hello World",
         "url": "https://example.com/hello-world",
     }
 
@@ -50,7 +50,7 @@ def test_send_includes_category_and_summary_in_embed(httpserver: HTTPServer) -> 
     notifier.send([article])
 
     embed = httpserver.log[0][0].get_json()["embeds"][0]
-    assert embed["title"] == "🔥🔥 [Tech] Hello World 🔥🔥"
+    assert embed["title"] == "[Tech] Hello World"
     assert embed["description"] == "```A short summary.```"
 
 
@@ -138,7 +138,7 @@ def test_send_truncates_long_title_to_fit_discords_title_limit(
 
     title = httpserver.log[0][0].get_json()["embeds"][0]["title"]
     assert len(title) <= 256
-    assert title.startswith("🔥🔥 xxx")
+    assert title.startswith("xxx")
     assert "…" in title
 
 
@@ -184,7 +184,7 @@ def test_send_escapes_discord_markdown_special_characters_in_title(
     notifier.send([article])
 
     title = httpserver.log[0][0].get_json()["embeds"][0]["title"]
-    assert title == r"🔥🔥 AI\_powered \*thing\* 🔥🔥"
+    assert title == r"AI\_powered \*thing\*"
 
 
 def test_send_escapes_triple_backticks_in_summary_to_avoid_breaking_the_code_fence(

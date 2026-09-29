@@ -40,7 +40,7 @@ class DiscordNotifier:
             if article.category
             else article.title
         )
-        header = _escape_markdown(f"🔥🔥 {title_with_category} 🔥🔥")
+        header = _escape_markdown(title_with_category)
 
         embed: dict[str, object] = {
             "title": _truncate(header, TITLE_LIMIT),
