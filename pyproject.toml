@@ -13,6 +13,7 @@ dependencies = [
     "groq>=1.7.0",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
+    "python-crontab>=3.4.0",
     "python-telegram-bot>=22.8",
     "pyyaml>=6.0.3",
     "requests>=2.34.2",
