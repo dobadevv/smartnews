@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from typing import Self
 
 import psycopg
@@ -52,10 +53,16 @@ class PostgresSeenStore:
             )
         )
 
-    def _with_reconnect(self, operation):
+    def _with_reconnect[T](self, operation: Callable[[psycopg.Connection], T]) -> T:
         try:
             return operation(self._conn)
         except psycopg.OperationalError:
             logger.warning("postgres connection lost, reconnecting")
+            try:
+                self._conn.close()
+            except Exception:
+                logger.warning(
+                    "failed to close broken postgres connection", exc_info=True
+                )
             self._conn = psycopg.connect(self._dsn, autocommit=True)
             return operation(self._conn)

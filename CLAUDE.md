@@ -28,24 +28,29 @@ more implementations, so stages can be swapped or mocked independently.
   `feedparser` for RSS/Atom feeds.
 - **Repository (dedup store)** — checks whether an article (by a hash of
   its canonicalized URL, computed in `dedup.py`) has already been sent
-  **on a given channel**, and records new sends. Backed by Postgres,
-  with a `(key, channel)` unique constraint so the same article can be
-  independently tracked per Discord/Telegram. An article is only marked
-  seen for a channel after it has actually been sent there — if sending
-  fails, it stays eligible for a retry on the next cycle instead of
-  being silently dropped.
-- **Filter** — takes a list of articles and returns the (possibly
-  rewritten) list that should be forwarded. Default is `PassthroughFilter`
-  (no-op). `GeminiFilter` and `GroqFilter` both call a free-tier LLM API to
-  rewrite each article's title/summary: translated to Vietnamese, technical
-  terms (product names, languages, frameworks, acronyms like API/LLM/SDK)
-  left untranslated, and the summary rewritten as a brief 1-2 sentence
+  **on a given channel** (`is_seen(key, channel) -> bool`), and records
+  new sends (`mark_seen`). Backed by Postgres, with a `(key, channel)`
+  unique constraint so the same article can be independently tracked per
+  Discord/Telegram. `PostgresSeenStore` is a context manager that opens
+  one connection for the whole pipeline run (not one per call) and
+  reconnects once, transparently, if that connection drops mid-run. An
+  article is only marked seen for a channel after it has actually been
+  sent there — if sending fails, it stays eligible for a retry on the
+  next cycle instead of being silently dropped.
+- **Filter** — takes one article and returns the (possibly rewritten)
+  article that should be forwarded; called once per article as it streams
+  through the pipeline. Default is `PassthroughFilter` (no-op).
+  `GeminiFilter` and `GroqFilter` both call a free-tier LLM API to rewrite
+  the article's title/summary: translated to Vietnamese, technical terms
+  (product names, languages, frameworks, acronyms like API/LLM/SDK) left
+  untranslated, and the summary rewritten as a brief 1-2 sentence
   overview; both share the same prompt via `filtering/prompts.py`. A
-  failed call for one article is logged and that article is kept with its
-  original title/summary rather than dropped. `filtering/factory.py` builds the
-  active `Filter` from config + env (dispatching on `filter.provider`),
+  failed call is logged and the article is kept with its original
+  title/summary rather than dropped — this failure is isolated per
+  article and never affects the next one. `filtering/factory.py` builds
+  the active `Filter` from config + env (dispatching on `filter.provider`),
   same pattern as notifiers.
-- **Notifier** — sends a list of articles to a destination channel.
+- **Notifier** — sends one article to a destination channel.
   Implementations: `DiscordNotifier` (webhook), `TelegramNotifier` (bot
   API). Which notifier(s) are active is controlled by
   `notifiers.<channel>.enabled` in `config/sources.yaml`; credentials
@@ -53,10 +58,15 @@ more implementations, so stages can be swapped or mocked independently.
   the YAML file, so they never get committed. `notifiers/factory.py`
   builds the active `Notifier` list from config + env, raising a clear
   error if a channel is enabled but its env vars are missing.
-- **Pipeline** — orchestrates one fetch -> dedup -> filter -> send cycle
-  using whichever implementations are wired in. `main()` currently falls
-  back to printing articles to stdout when no notifier is enabled, so
-  the service still runs without any external setup.
+- **Pipeline** — a chain of generator functions that streams each article
+  through fetch -> dedup-check -> filter -> notifier-dispatch
+  individually, rather than passing whole-batch lists between stages. An
+  article is translated and sent to every applicable notifier before the
+  next article is even fetched; a fetch failure on one source, an LLM
+  failure on one article, or a send failure on one notifier is isolated
+  and does not stop the rest of the stream. `main()` currently falls back
+  to printing articles to stdout when no notifier is enabled, so the
+  service still runs without any external setup.
 - **Scheduler** — runs the pipeline on a configured interval, keeping the
   process alive as a long-running service.
 
@@ -85,7 +95,7 @@ src/smartnews/
     discord.py
     telegram.py
     factory.py           # builds active notifiers from config + env vars
-  pipeline.py           # one fetch -> dedup -> filter -> send cycle
+  pipeline.py           # generator streaming pipeline: fetch -> dedup -> filter -> send, one article at a time
   scheduler.py           # runs the pipeline on an interval
   __init__.py            # main() entrypoint / service bootstrap
 config/
@@ -96,33 +106,36 @@ config/
 
 1. `main()` loads `config/sources.yaml` (sources, notifier settings,
    filter settings, poll interval).
-2. The scheduler starts and, on each tick:
-   a. Fetch: for every source with `enabled: true`, fetch its feed and
-      parse entries into `Article` objects.
-   b. Aggregate: merge articles from all sources into one list.
-   c. If no notifier is enabled, run the whole batch through the
-      configured `Filter` and print it to stdout — there's no dedup
+2. The scheduler starts and, on each tick, streams articles through a
+   chain of generators (`pipeline.py`) instead of building intermediate
+   lists — an article can be translated and sent before the next source
+   is even fetched:
+   a. `stream_enabled_sources`: for every source with `enabled: true`,
+      fetch its feed, parse entries into `Article` objects, and
+      immediately cap that source's articles to its configured
+      `minimum_posts` **before** any dedup check — so `minimum_posts` is a
+      per-cycle ceiling on the newest items from that source, not a
+      backlog-draining floor. If fetching a source raises, that source is
+      logged and skipped; articles already streamed from earlier sources
+      in the same cycle are unaffected, and the failing source is retried
+      next cycle. If no notifier is enabled, articles go straight to
+      `stream_translated` and are printed to stdout — there's no dedup
       store to check against in this fallback mode.
-   d. Otherwise, before calling the LLM at all:
-      i. Dedup: keep only articles still unseen on at least one enabled
-         channel (`select_unseen_for_any_channel`, union across
-         notifiers), so the filter never re-translates an article every
-         channel has already received.
-      ii. Cap: limit each source's remaining articles to its configured
-          `minimum_posts` (`limit_to_minimum_posts`), since that's the
-          most any single channel will ever send from that source in one
-          cycle — translating more than that is wasted LLM work.
-      iii. Filter: run the capped, still-unseen articles through the
-           configured `Filter` implementation.
-   e. For each active `Notifier` (its own channel, e.g. `"discord"`,
-      `"telegram"`):
-      i. Dedup again: compute each article's key (`dedup.py`) and ask
-         the `SeenStore` which ones are not yet seen on *this* channel
-         — step d.i only guarantees unseen on at least one channel, not
-         this specific one.
-      ii. Send: pass the still-unseen articles to this notifier.
-      iii. Record: for the articles that were sent successfully, mark
-           them seen on this channel in Postgres.
+   b. `stream_unseen_for_any_channel`: for each article, keep it only if
+      it's still unseen on at least one enabled channel (union across
+      notifiers), so the filter never re-translates an article every
+      channel has already received.
+   c. `stream_translated`: run each still-unseen article through the
+      configured `Filter` implementation, one call per article.
+   d. `run_notify_pipeline`: for each translated article, loop over every
+      active `Notifier` (its own channel, e.g. `"discord"`, `"telegram"`):
+      i. Dedup again: ask the `SeenStore` whether this article's key is
+         seen on *this specific* channel — step (b) only guarantees
+         unseen on at least one channel, not this one.
+      ii. Send: pass the article to this notifier; a failure is logged
+          and isolated to that notifier/article pair.
+      iii. Record: if the send succeeded, mark the article seen on this
+           channel in Postgres.
 3. The process keeps running, repeating step 2 on the configured
    interval, until stopped.
 

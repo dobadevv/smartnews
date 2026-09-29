@@ -246,6 +246,39 @@ def test_stream_unseen_for_any_channel_returns_all_articles_when_no_notifiers() 
     assert result == articles
 
 
+def test_minimum_posts_cap_is_applied_before_dedup_so_a_seen_newest_item_hides_older_unsent_ones() -> (
+    None
+):
+    """Pins a deliberate design choice (spec: cap at fetch time, before the
+    unseen check) over the old batch pipeline's order (dedup, then cap): once
+    a source's newest fetched item has already been sent, older unsent items
+    from that same source are never surfaced, even though they were never
+    delivered. `minimum_posts` is therefore a per-cycle ceiling on the
+    newest items, not a backlog-draining floor."""
+
+    class ThreeArticlesFetcher:
+        def fetch(self, source: SourceConfig) -> list[Article]:
+            return [
+                make_article(
+                    f"https://example.com/{source.name}-{i}", source=source.name
+                )
+                for i in range(3)
+            ]
+
+    sources = [SourceConfig(name="hacker-news", url="https://a", minimum_posts=1)]
+    fetched = stream_enabled_sources(sources, ThreeArticlesFetcher())
+    seen_store = FakeSeenStore()
+    notifier = FakeNotifier("discord")
+    newest_article = make_article(
+        "https://example.com/hacker-news-0", source="hacker-news"
+    )
+    seen_store.mark_seen(article_key(newest_article), "discord")
+
+    result = list(stream_unseen_for_any_channel(fetched, seen_store, [notifier]))
+
+    assert result == []
+
+
 def test_run_notify_pipeline_sends_unseen_article_and_marks_it_seen() -> None:
     article = make_article("https://example.com/a")
     notifier = FakeNotifier("discord")
@@ -277,6 +310,27 @@ def test_run_notify_pipeline_does_not_mark_seen_when_send_fails() -> None:
 
     assert notifier.sent == []
     assert seen_store.is_seen(article_key(article), "discord") is False
+
+
+def test_run_notify_pipeline_keeps_processing_later_articles_after_one_send_fails() -> (
+    None
+):
+    articles = [
+        make_article("https://example.com/0"),
+        make_article("https://example.com/1"),
+        make_article("https://example.com/2"),
+    ]
+    notifier = FakeNotifier(
+        "discord", fail_urls=frozenset({"https://example.com/1"})
+    )
+    seen_store = FakeSeenStore()
+
+    run_notify_pipeline(iter(articles), [notifier], seen_store)
+
+    assert notifier.sent == [articles[0], articles[2]]
+    assert seen_store.is_seen(article_key(articles[0]), "discord") is True
+    assert seen_store.is_seen(article_key(articles[1]), "discord") is False
+    assert seen_store.is_seen(article_key(articles[2]), "discord") is True
 
 
 def test_run_notify_pipeline_still_dispatches_to_other_notifiers_when_one_fails() -> (
@@ -393,3 +447,48 @@ def test_run_print_pipeline_prints_every_article(
     out = capsys.readouterr().out
     assert "a" in out
     assert "b" in out
+
+
+def test_pipeline_processes_each_article_end_to_end_before_the_next_is_fetched() -> (
+    None
+):
+    events: list[str] = []
+
+    class EventFetcher:
+        def fetch(self, source: SourceConfig) -> list[Article]:
+            events.append(f"fetch:{source.name}")
+            return [
+                make_article(f"https://example.com/{source.name}", source=source.name)
+            ]
+
+    class EventFilter:
+        def filter(self, article: Article) -> Article:
+            events.append(f"translate:{article.source}")
+            return article
+
+    class EventNotifier:
+        channel = "discord"
+
+        def send(self, article: Article) -> None:
+            events.append(f"send:{article.source}")
+
+    sources = [
+        SourceConfig(name="s1", url="https://a.example.com/feed", enabled=True),
+        SourceConfig(name="s2", url="https://b.example.com/feed", enabled=True),
+    ]
+    seen_store = FakeSeenStore()
+    notifiers = [EventNotifier()]
+
+    fetched = stream_enabled_sources(sources, EventFetcher())
+    unseen = stream_unseen_for_any_channel(fetched, seen_store, notifiers)
+    translated = stream_translated(unseen, EventFilter())
+    run_notify_pipeline(translated, notifiers, seen_store)
+
+    assert events == [
+        "fetch:s1",
+        "translate:s1",
+        "send:s1",
+        "fetch:s2",
+        "translate:s2",
+        "send:s2",
+    ]
