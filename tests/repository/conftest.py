@@ -18,6 +18,6 @@ def seen_store(postgres_dsn: str) -> Iterator[PostgresSeenStore]:
     with psycopg.connect(postgres_dsn, autocommit=True) as conn:
         conn.execute("DROP TABLE IF EXISTS seen_articles")
 
-    store = PostgresSeenStore(postgres_dsn)
-    store.ensure_schema()
-    yield store
+    with PostgresSeenStore(postgres_dsn) as store:
+        store.ensure_schema()
+        yield store

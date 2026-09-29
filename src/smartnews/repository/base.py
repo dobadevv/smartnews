@@ -2,8 +2,8 @@ from typing import Protocol
 
 
 class SeenStore(Protocol):
-    def filter_unseen(self, keys: list[str], channel: str) -> set[str]:
-        """Return the subset of `keys` not yet marked seen for `channel`."""
+    def is_seen(self, key: str, channel: str) -> bool:
+        """Return whether `key` has already been sent on `channel`."""
         ...
 
     def mark_seen(self, key: str, channel: str) -> None:
