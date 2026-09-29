@@ -42,3 +42,15 @@ def main() -> None:
         hour_utc,
         minute_utc,
     )
+
+
+def remove() -> None:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+
+    cron = CronTab(user=True)
+    remove_cron_job(cron)
+    cron.write()
+
+    logger.info("removed any existing smartnews crontab entry")
