@@ -153,6 +153,39 @@ exits. To run it continuously, schedule this command with `cron`, a
 systemd timer, or your platform's job scheduler at whatever interval you
 want (e.g. every 30 minutes).
 
+### Scheduling (cron)
+
+`smartnews` itself still runs once and exits (see above) — recurring
+execution is driven by the OS crontab. Rather than editing `crontab -e` by
+hand, `smartnews-cronjob` installs/updates a single crontab entry for you,
+based on `config/sources.yaml`:
+
+```yaml
+cronjob:
+  enabled: true               # optional; defaults to true
+  time: "07:00"                # optional; defaults to "07:00", 24h HH:MM
+  timezone: Asia/Ho_Chi_Minh   # optional; defaults to Asia/Ho_Chi_Minh
+```
+
+```bash
+uv run smartnews-cronjob
+```
+
+Re-run this command any time you change `time`/`timezone` — it updates the
+existing entry in place rather than creating a second one. Setting
+`cronjob.enabled: false` and re-running removes the entry entirely.
+
+Since not every cron daemon understands per-job timezones, the configured
+local time is converted to UTC once, at the moment you run
+`smartnews-cronjob`, and that fixed UTC hour/minute is what actually gets
+written to the crontab. `Asia/Ho_Chi_Minh` has no daylight saving time, so
+this conversion never needs to be redone unless you change the schedule
+yourself.
+
+The installed entry redirects `smartnews`'s output to `logs/cron.log`
+(created automatically) instead of relying on cron's mail delivery, which
+usually isn't configured on a dev machine.
+
 ### Development
 
 ```bash
