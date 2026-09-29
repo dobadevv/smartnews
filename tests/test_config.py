@@ -246,6 +246,62 @@ def test_load_cronjob_raises_when_time_format_is_invalid(tmp_path: Path) -> None
         load_cronjob(path)
 
 
+def test_load_cronjob_raises_when_time_includes_seconds(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        cronjob:
+          time: "07:00:30"
+        """,
+    )
+
+    with pytest.raises(ValidationError, match="cronjob.time"):
+        load_cronjob(path)
+
+
+def test_load_cronjob_raises_when_time_is_missing_colon(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        cronjob:
+          time: "0700"
+        """,
+    )
+
+    with pytest.raises(ValidationError, match="cronjob.time"):
+        load_cronjob(path)
+
+
+def test_load_cronjob_raises_when_time_has_leading_t(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        cronjob:
+          time: "T07:00"
+        """,
+    )
+
+    with pytest.raises(ValidationError, match="cronjob.time"):
+        load_cronjob(path)
+
+
+def test_load_cronjob_raises_when_hour_is_out_of_range(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        cronjob:
+          time: "24:00"
+        """,
+    )
+
+    with pytest.raises(ValidationError, match="cronjob.time"):
+        load_cronjob(path)
+
+
 def test_load_cronjob_raises_when_timezone_is_invalid(tmp_path: Path) -> None:
     path = write_sources_yaml(
         tmp_path,

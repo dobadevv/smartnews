@@ -38,11 +38,13 @@ class CronjobConfig(BaseModel):
     @classmethod
     def _validate_time_format(cls, value: str) -> str:
         try:
-            time_of_day.fromisoformat(value)
+            parsed = time_of_day.fromisoformat(value)
         except ValueError as exc:
             raise ValueError(
                 f"cronjob.time must be in HH:MM format, got {value!r}"
             ) from exc
+        if value != parsed.strftime("%H:%M"):
+            raise ValueError(f"cronjob.time must be in HH:MM format, got {value!r}")
         return value
 
     @field_validator("timezone")

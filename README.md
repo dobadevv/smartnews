@@ -186,6 +186,13 @@ The installed entry redirects `smartnews`'s output to `logs/cron.log`
 (created automatically) instead of relying on cron's mail delivery, which
 usually isn't configured on a dev machine.
 
+Cron runs commands without your shell's environment, so a `.env` file
+alone is not enough for the scheduled run — make sure `DATABASE_URL` and
+any enabled notifier/filter credentials are actually exported wherever
+`smartnews-cronjob` installs the job (e.g. loaded by your shell profile
+for a user crontab, or set at the system level), the same as any other
+environment variable a cron job depends on.
+
 ### Development
 
 ```bash

@@ -362,3 +362,8 @@ filter:
   enabled: true
   provider: groq
   model: openai/gpt-oss-120b
+
+cronjob:
+  enabled: true
+  time: "07:00"
+  timezone: Asia/Ho_Chi_Minh
