@@ -21,6 +21,7 @@ dependencies = [
 
 [project.scripts]
 smartnews = "smartnews:main"
+smartnews-cronjob = "smartnews.cronjob:main"
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]
