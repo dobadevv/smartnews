@@ -111,23 +111,26 @@ config/
    lists — an article can be translated and sent before the next source
    is even fetched:
    a. `stream_enabled_sources`: for every source with `enabled: true`,
-      fetch its feed, parse entries into `Article` objects, and
-      immediately cap that source's articles to its configured
-      `minimum_posts` **before** any dedup check — so `minimum_posts` is a
-      per-cycle ceiling on the newest items from that source, not a
-      backlog-draining floor. If fetching a source raises, that source is
-      logged and skipped; articles already streamed from earlier sources
-      in the same cycle are unaffected, and the failing source is retried
-      next cycle. If no notifier is enabled, articles go straight to
+      fetch its feed and parse entries into `Article` objects — no
+      capping yet. If fetching a source raises, that source is logged and
+      skipped; articles already streamed from earlier sources in the same
+      cycle are unaffected, and the failing source is retried next cycle.
+      If no notifier is enabled, articles go straight to
       `stream_translated` and are printed to stdout — there's no dedup
-      store to check against in this fallback mode.
+      store to check against, and no cap, in this fallback mode.
    b. `stream_unseen_for_any_channel`: for each article, keep it only if
       it's still unseen on at least one enabled channel (union across
       notifiers), so the filter never re-translates an article every
       channel has already received.
-   c. `stream_translated`: run each still-unseen article through the
-      configured `Filter` implementation, one call per article.
-   d. `run_notify_pipeline`: for each translated article, loop over every
+   c. `stream_capped_to_minimum_posts`: cap each source's *still-unseen*
+      articles to its configured `minimum_posts`, so it acts as a
+      backlog-draining floor — once a source's newest item has been sent,
+      the next-oldest unsent item from that source surfaces on the next
+      cycle instead of the source going silent. Capping runs after dedup
+      (not before) precisely so already-sent items don't consume the cap.
+   d. `stream_translated`: run each still-unseen, capped article through
+      the configured `Filter` implementation, one call per article.
+   e. `run_notify_pipeline`: for each translated article, loop over every
       active `Notifier` (its own channel, e.g. `"discord"`, `"telegram"`):
       i. Dedup again: ask the `SeenStore` whether this article's key is
          seen on *this specific* channel — step (b) only guarantees

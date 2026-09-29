@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 def stream_enabled_sources(
     sources: list[SourceConfig], fetcher: Fetcher
 ) -> Iterator[Article]:
-    minimum_posts_by_source = _minimum_posts_by_source(sources)
     for source in sources:
         if not source.enabled:
             continue
@@ -25,14 +24,8 @@ def stream_enabled_sources(
         except Exception:
             logger.exception("failed to fetch source %s", source.name)
             continue
-        capped = _limit_to_minimum_posts(fetched, minimum_posts_by_source)
-        logger.info(
-            "fetched %d article(s) from %s (%d after cap)",
-            len(fetched),
-            source.name,
-            len(capped),
-        )
-        yield from capped
+        logger.info("fetched %d article(s) from %s", len(fetched), source.name)
+        yield from fetched
 
 
 def stream_unseen_for_any_channel(
@@ -47,6 +40,22 @@ def stream_unseen_for_any_channel(
             not seen_store.is_seen(key, notifier.channel) for notifier in notifiers
         ):
             yield article
+
+
+def stream_capped_to_minimum_posts(
+    articles: Iterator[Article], sources: list[SourceConfig]
+) -> Iterator[Article]:
+    minimum_posts_by_source = _minimum_posts_by_source(sources)
+    sent_count_by_source: dict[str, int] = {}
+    for article in articles:
+        minimum_posts = minimum_posts_by_source.get(article.source)
+        if minimum_posts is None:
+            yield article
+            continue
+        sent_count = sent_count_by_source.get(article.source, 0)
+        if sent_count < minimum_posts:
+            yield article
+            sent_count_by_source[article.source] = sent_count + 1
 
 
 def run_notify_pipeline(
@@ -103,20 +112,3 @@ def _minimum_posts_by_source(sources: list[SourceConfig]) -> dict[str, int]:
         for source in sources
         if source.minimum_posts is not None
     }
-
-
-def _limit_to_minimum_posts(
-    articles: list[Article], minimum_posts_by_source: dict[str, int]
-) -> list[Article]:
-    sent_count_by_source: dict[str, int] = {}
-    limited_articles: list[Article] = []
-    for article in articles:
-        minimum_posts = minimum_posts_by_source.get(article.source)
-        if minimum_posts is None:
-            limited_articles.append(article)
-            continue
-        sent_count = sent_count_by_source.get(article.source, 0)
-        if sent_count < minimum_posts:
-            limited_articles.append(article)
-            sent_count_by_source[article.source] = sent_count + 1
-    return limited_articles

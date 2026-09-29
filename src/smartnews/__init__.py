@@ -9,6 +9,7 @@ from smartnews.notifiers.factory import build_notifiers
 from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
+    stream_capped_to_minimum_posts,
     stream_enabled_sources,
     stream_translated,
     stream_unseen_for_any_channel,
@@ -56,6 +57,7 @@ def main() -> None:
     with PostgresSeenStore(database_url) as seen_store:
         seen_store.ensure_schema()
         unseen = stream_unseen_for_any_channel(articles, seen_store, notifiers)
-        translated = stream_translated(unseen, article_filter)
+        capped = stream_capped_to_minimum_posts(unseen, sources)
+        translated = stream_translated(capped, article_filter)
         run_notify_pipeline(translated, notifiers, seen_store)
     logger.info("run complete")

@@ -8,6 +8,7 @@ from smartnews.models import Article
 from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
+    stream_capped_to_minimum_posts,
     stream_enabled_sources,
     stream_translated,
     stream_unseen_for_any_channel,
@@ -86,7 +87,7 @@ def test_stream_enabled_sources_logs_progress_per_source(
     assert any("first" in message for message in messages)
 
 
-def test_stream_enabled_sources_caps_articles_per_source_minimum_posts() -> None:
+def test_stream_enabled_sources_yields_all_fetched_articles_without_capping() -> None:
     class ManyArticlesFetcher:
         def fetch(self, source: SourceConfig) -> list[Article]:
             return [
@@ -95,50 +96,12 @@ def test_stream_enabled_sources_caps_articles_per_source_minimum_posts() -> None
             ]
 
     sources = [
-        SourceConfig(name="hacker-news", url="https://a", minimum_posts=2),
+        SourceConfig(name="hacker-news", url="https://a", minimum_posts=1),
     ]
-
-    articles = list(stream_enabled_sources(sources, ManyArticlesFetcher()))
-
-    assert len(articles) == 2
-
-
-def test_stream_enabled_sources_leaves_source_unbounded_when_no_minimum_configured() -> (
-    None
-):
-    class ManyArticlesFetcher:
-        def fetch(self, source: SourceConfig) -> list[Article]:
-            return [
-                make_article(f"https://example.com/{i}", source=source.name)
-                for i in range(3)
-            ]
-
-    sources = [SourceConfig(name="hacker-news", url="https://a")]
 
     articles = list(stream_enabled_sources(sources, ManyArticlesFetcher()))
 
     assert len(articles) == 3
-
-
-def test_stream_enabled_sources_applies_minimum_posts_independently_per_source() -> (
-    None
-):
-    class ManyArticlesFetcher:
-        def fetch(self, source: SourceConfig) -> list[Article]:
-            count = 2 if source.name == "source-a" else 3
-            return [
-                make_article(f"https://example.com/{source.name}-{i}", source=source.name)
-                for i in range(count)
-            ]
-
-    sources = [
-        SourceConfig(name="source-a", url="https://a", minimum_posts=1),
-        SourceConfig(name="source-b", url="https://b", minimum_posts=2),
-    ]
-
-    articles = list(stream_enabled_sources(sources, ManyArticlesFetcher()))
-
-    assert [a.source for a in articles] == ["source-a", "source-b", "source-b"]
 
 
 def test_stream_enabled_sources_skips_a_failing_source_and_continues_to_the_next() -> (
@@ -246,15 +209,14 @@ def test_stream_unseen_for_any_channel_returns_all_articles_when_no_notifiers() 
     assert result == articles
 
 
-def test_minimum_posts_cap_is_applied_before_dedup_so_a_seen_newest_item_hides_older_unsent_ones() -> (
+def test_dedup_before_cap_still_surfaces_an_older_unsent_article_once_the_newest_is_seen() -> (
     None
 ):
-    """Pins a deliberate design choice (spec: cap at fetch time, before the
-    unseen check) over the old batch pipeline's order (dedup, then cap): once
-    a source's newest fetched item has already been sent, older unsent items
-    from that same source are never surfaced, even though they were never
-    delivered. `minimum_posts` is therefore a per-cycle ceiling on the
-    newest items, not a backlog-draining floor."""
+    """Cap runs after dedup (stream_capped_to_minimum_posts, applied after
+    stream_unseen_for_any_channel), so minimum_posts is a backlog-draining
+    floor: once a source's newest item has been sent, the next-oldest
+    still-unsent item from that source surfaces instead of the source going
+    silent for the rest of the cycle."""
 
     class ThreeArticlesFetcher:
         def fetch(self, source: SourceConfig) -> list[Article]:
@@ -274,9 +236,53 @@ def test_minimum_posts_cap_is_applied_before_dedup_so_a_seen_newest_item_hides_o
     )
     seen_store.mark_seen(article_key(newest_article), "discord")
 
-    result = list(stream_unseen_for_any_channel(fetched, seen_store, [notifier]))
+    unseen = stream_unseen_for_any_channel(fetched, seen_store, [notifier])
+    capped = stream_capped_to_minimum_posts(unseen, sources)
 
-    assert result == []
+    assert [a.url for a in capped] == ["https://example.com/hacker-news-1"]
+
+
+def test_stream_capped_to_minimum_posts_caps_articles_per_source() -> None:
+    articles = [
+        make_article(f"https://example.com/{i}", source="hacker-news")
+        for i in range(3)
+    ]
+    sources = [SourceConfig(name="hacker-news", url="https://a", minimum_posts=2)]
+
+    result = list(stream_capped_to_minimum_posts(iter(articles), sources))
+
+    assert result == articles[:2]
+
+
+def test_stream_capped_to_minimum_posts_leaves_source_unbounded_when_no_minimum_configured() -> (
+    None
+):
+    articles = [
+        make_article(f"https://example.com/{i}", source="hacker-news")
+        for i in range(3)
+    ]
+    sources = [SourceConfig(name="hacker-news", url="https://a")]
+
+    result = list(stream_capped_to_minimum_posts(iter(articles), sources))
+
+    assert result == articles
+
+
+def test_stream_capped_to_minimum_posts_applies_independently_per_source() -> None:
+    articles = [
+        make_article("https://example.com/a0", source="source-a"),
+        make_article("https://example.com/a1", source="source-a"),
+        make_article("https://example.com/b0", source="source-b"),
+        make_article("https://example.com/b1", source="source-b"),
+    ]
+    sources = [
+        SourceConfig(name="source-a", url="https://a", minimum_posts=1),
+        SourceConfig(name="source-b", url="https://b", minimum_posts=2),
+    ]
+
+    result = list(stream_capped_to_minimum_posts(iter(articles), sources))
+
+    assert result == [articles[0], articles[2], articles[3]]
 
 
 def test_run_notify_pipeline_sends_unseen_article_and_marks_it_seen() -> None:
