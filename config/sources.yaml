@@ -1,41 +1,46 @@
 sources:
-sources:
   # ===== Architecture =====
   - name: hacker-news
     url: https://hnrss.org/frontpage?points=150
     category: architecture
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: lobsters-distributed
     url: https://lobste.rs/t/distributed.rss
     category: architecture
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: cloudflare-blog
     url: https://blog.cloudflare.com/rss/
     category: architecture
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: aws-architecture-blog
     url: https://aws.amazon.com/blogs/architecture/feed/
     category: architecture
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: infoq
     url: https://www.infoq.com/feed
     category: architecture
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: the-new-stack
     url: https://thenewstack.io/feed/
     category: architecture
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== Runtime & Language =====
   - name: go-blog
@@ -43,48 +48,56 @@ sources:
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: nodejs-releases
     url: https://nodejs.org/en/feed/releases.xml
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: bun-releases
     url: https://github.com/oven-sh/bun/releases.atom
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: deno-releases
     url: https://github.com/denoland/deno/releases.atom
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: python-insider
     url: https://pythoninsider.blogspot.com/feeds/posts/default
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: spring-blog
     url: https://spring.io/blog.atom
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: nestjs-releases
     url: https://github.com/nestjs/nest/releases.atom
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: typescript-blog
     url: https://devblogs.microsoft.com/typescript/feed/
     category: runtime
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== Frontend & Mobile =====
   - name: react-blog
@@ -92,24 +105,28 @@ sources:
     category: frontend
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: nextjs-releases
     url: https://github.com/vercel/next.js/releases.atom
     category: frontend
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: react-native-blog
     url: https://reactnative.dev/blog/rss.xml
     category: frontend
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: flutter-releases
     url: https://github.com/flutter/flutter/releases.atom
     category: frontend
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== Database & Messaging =====
   - name: postgresql-news
@@ -117,42 +134,49 @@ sources:
     category: data
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: mysql-releases
     url: https://blogs.oracle.com/mysql/rss
     category: data
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: mongodb-blog
     url: https://www.mongodb.com/blog/rss
     category: data
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: redis-blog
     url: https://redis.io/blog/feed/
     category: data
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: kafka-tags
     url: https://github.com/apache/kafka/tags.atom
     category: data
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: rabbitmq-blog
     url: https://www.rabbitmq.com/blog/feed.xml
     category: data
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: elastic-blog
     url: https://www.elastic.co/blog/feed
     category: data
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== Cloud =====
   - name: aws-whats-new
@@ -160,18 +184,21 @@ sources:
     category: cloud
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: gcp-release-notes
     url: https://cloud.google.com/feeds/gcp-release-notes.xml
     category: cloud
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: azure-updates
     url: https://azure.microsoft.com/en-us/updates/feed/
     category: cloud
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== Observability =====
   - name: grafana-blog
@@ -179,18 +206,21 @@ sources:
     category: observability
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: prometheus-blog
     url: https://prometheus.io/blog/feed.xml
     category: observability
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: loki-releases
     url: https://github.com/grafana/loki/releases.atom
     category: observability
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== LLM / AI Agent =====
   - name: hn-ai
@@ -198,54 +228,63 @@ sources:
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: lobsters-ai
     url: https://lobste.rs/t/ai.rss
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: openai-news
     url: https://openai.com/news/rss.xml
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: google-deepmind
     url: https://deepmind.google/blog/rss.xml
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: huggingface-blog
     url: https://huggingface.co/blog/feed.xml
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: langchain-blog
     url: https://blog.langchain.dev/rss/
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: latent-space
     url: https://www.latent.space/feed
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: techcrunch-ai
     url: https://techcrunch.com/category/artificial-intelligence/feed/
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: verge-ai
     url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
     category: ai
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== Crypto =====
   - name: coindesk
@@ -253,18 +292,21 @@ sources:
     category: crypto
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: cointelegraph
     url: https://cointelegraph.com/rss
     category: crypto
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: the-block
     url: https://www.theblock.co/rss.xml
     category: crypto
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== Stock =====
   - name: cnbc-markets
@@ -272,18 +314,21 @@ sources:
     category: stocks
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: marketwatch
     url: https://feeds.content.dowjones.io/public/rss/mw_topstories
     category: stocks
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: cafef-chung-khoan
     url: https://cafef.vn/thi-truong-chung-khoan.rss
     category: stocks
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   # ===== World Politics =====
   - name: bbc-world
@@ -291,18 +336,21 @@ sources:
     category: world
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: aljazeera
     url: https://www.aljazeera.com/xml/rss/all.xml
     category: world
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
   - name: guardian-world
     url: https://www.theguardian.com/world/rss
     category: world
     enabled: true
     max_posts: 1
+    lookback_days: 7
 
 notifiers:
   discord:
