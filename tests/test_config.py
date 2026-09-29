@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from smartnews.config import load_filter, load_notifiers, load_sources
+import pytest
+from pydantic import ValidationError
+
+from smartnews.config import load_cronjob, load_filter, load_notifiers, load_sources
 
 
 def write_sources_yaml(tmp_path: Path, content: str) -> Path:
@@ -198,3 +201,60 @@ def test_load_filter_defaults_model_to_none_when_omitted(tmp_path: Path) -> None
     filter_config = load_filter(path)
 
     assert filter_config.model is None
+
+
+def test_load_cronjob_defaults_when_section_missing(tmp_path: Path) -> None:
+    path = write_sources_yaml(tmp_path, "sources: []\n")
+
+    cronjob = load_cronjob(path)
+
+    assert cronjob.enabled is True
+    assert cronjob.time == "07:00"
+    assert cronjob.timezone == "Asia/Ho_Chi_Minh"
+
+
+def test_load_cronjob_parses_overrides_when_provided(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        cronjob:
+          enabled: false
+          time: "18:30"
+          timezone: America/New_York
+        """,
+    )
+
+    cronjob = load_cronjob(path)
+
+    assert cronjob.enabled is False
+    assert cronjob.time == "18:30"
+    assert cronjob.timezone == "America/New_York"
+
+
+def test_load_cronjob_raises_when_time_format_is_invalid(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        cronjob:
+          time: "not-a-time"
+        """,
+    )
+
+    with pytest.raises(ValidationError, match="cronjob.time"):
+        load_cronjob(path)
+
+
+def test_load_cronjob_raises_when_timezone_is_invalid(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources: []
+        cronjob:
+          timezone: Not/AZone
+        """,
+    )
+
+    with pytest.raises(ValidationError, match="cronjob.timezone"):
+        load_cronjob(path)
