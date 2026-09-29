@@ -1,6 +1,6 @@
 import logging
 
-import requests
+import discord
 
 from smartnews.models import Article
 
@@ -18,22 +18,23 @@ class DiscordNotifier:
     channel = "discord"
 
     def __init__(self, webhook_url: str) -> None:
-        self._webhook_url = webhook_url
+        self._webhook = discord.SyncWebhook.from_url(webhook_url)
 
     def send(self, article: Article) -> None:
-        payload = {"embeds": [self._build_embed(article)]}
-        response = requests.post(self._webhook_url, json=payload, timeout=10)
-        if not response.ok:
+        embed = self._build_embed(article)
+        try:
+            self._webhook.send(embed=embed)
+        except discord.HTTPException as exc:
             logger.error(
                 "discord webhook failed: status=%d payload=%s response=%s",
-                response.status_code,
-                payload,
-                response.text,
+                exc.status,
+                embed.to_dict(),
+                exc.text,
             )
-        response.raise_for_status()
+            raise
 
     @staticmethod
-    def _build_embed(article: Article) -> dict[str, object]:
+    def _build_embed(article: Article) -> discord.Embed:
         title_with_category = (
             f"[{article.category}] {article.title}"
             if article.category
@@ -41,18 +42,15 @@ class DiscordNotifier:
         )
         header = _escape_markdown(title_with_category)
 
-        embed: dict[str, object] = {
-            "title": _truncate(header, TITLE_LIMIT),
-            "url": article.url,
-        }
+        embed = discord.Embed(title=_truncate(header, TITLE_LIMIT), url=article.url)
 
         if article.summary:
             budget = DESCRIPTION_LIMIT - 2 * len(_CODE_FENCE)
             summary = _escape_code_fence(_truncate(article.summary, budget))
-            embed["description"] = f"{_CODE_FENCE}{summary}{_CODE_FENCE}"
+            embed.description = f"{_CODE_FENCE}{summary}{_CODE_FENCE}"
 
         if article.thumbnail:
-            embed["image"] = {"url": article.thumbnail}
+            embed.set_image(url=article.thumbnail)
 
         return embed
 

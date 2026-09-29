@@ -1,21 +1,46 @@
 import logging
 
 import pytest
-import requests
 from pytest_httpserver import HTTPServer
-from werkzeug.wrappers import Response
+from telegram.error import TelegramError
 
 from smartnews.models import Article
 from smartnews.notifiers.telegram import TelegramNotifier
 from smartnews.text import html_to_text
 
+BOT_TOKEN = "fake-token"
+
+
+def _expect_get_me(httpserver: HTTPServer) -> None:
+    httpserver.expect_request(
+        f"/bot{BOT_TOKEN}/getMe", method="POST"
+    ).respond_with_json(
+        {"ok": True, "result": {"id": 1, "is_bot": True, "first_name": "TestBot"}}
+    )
+
+
+def _last_request_body(httpserver: HTTPServer) -> dict[str, object]:
+    return dict(httpserver.log[-1][0].form)
+
+
+def _ok_message_response() -> dict[str, object]:
+    return {
+        "ok": True,
+        "result": {
+            "message_id": 1,
+            "date": 0,
+            "chat": {"id": 12345, "type": "private"},
+        },
+    }
+
 
 def test_send_posts_each_article_to_the_bot_api(httpserver: HTTPServer) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendMessage", method="POST"
-    ).respond_with_response(Response(status=200))
+        f"/bot{BOT_TOKEN}/sendMessage", method="POST"
+    ).respond_with_json(_ok_message_response())
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -27,9 +52,7 @@ def test_send_posts_each_article_to_the_bot_api(httpserver: HTTPServer) -> None:
 
     notifier.send(article)
 
-    received_requests = httpserver.log
-    assert len(received_requests) == 1
-    body = received_requests[0][0].get_json()
+    body = _last_request_body(httpserver)
     assert body["chat_id"] == "12345"
     assert body["parse_mode"] == "HTML"
     assert body["text"] == (
@@ -40,11 +63,12 @@ def test_send_posts_each_article_to_the_bot_api(httpserver: HTTPServer) -> None:
 def test_send_includes_category_and_summary_in_text_when_no_thumbnail(
     httpserver: HTTPServer,
 ) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendMessage", method="POST"
-    ).respond_with_response(Response(status=200))
+        f"/bot{BOT_TOKEN}/sendMessage", method="POST"
+    ).respond_with_json(_ok_message_response())
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -57,7 +81,7 @@ def test_send_includes_category_and_summary_in_text_when_no_thumbnail(
 
     notifier.send(article)
 
-    body = httpserver.log[0][0].get_json()
+    body = _last_request_body(httpserver)
     assert body["text"] == (
         "<b>🔥🔥 [Tech] Hello World 🔥🔥</b>\n\n"
         "<blockquote>A short summary.</blockquote>\n\n"
@@ -68,11 +92,12 @@ def test_send_includes_category_and_summary_in_text_when_no_thumbnail(
 def test_send_posts_photo_with_caption_when_thumbnail_present(
     httpserver: HTTPServer,
 ) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendPhoto", method="POST"
-    ).respond_with_response(Response(status=200))
+        f"/bot{BOT_TOKEN}/sendPhoto", method="POST"
+    ).respond_with_json(_ok_message_response())
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -86,9 +111,7 @@ def test_send_posts_photo_with_caption_when_thumbnail_present(
 
     notifier.send(article)
 
-    received_requests = httpserver.log
-    assert len(received_requests) == 1
-    body = received_requests[0][0].get_json()
+    body = _last_request_body(httpserver)
     assert body["chat_id"] == "12345"
     assert body["parse_mode"] == "HTML"
     assert body["photo"] == "https://example.com/hello-world.jpg"
@@ -102,11 +125,14 @@ def test_send_posts_photo_with_caption_when_thumbnail_present(
 def test_send_raises_when_bot_api_returns_an_error_for_photo(
     httpserver: HTTPServer,
 ) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendPhoto", method="POST"
-    ).respond_with_response(Response(status=500))
+        f"/bot{BOT_TOKEN}/sendPhoto", method="POST"
+    ).respond_with_json(
+        {"ok": False, "description": "Bad Request: photo failed"}, status=400
+    )
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -117,16 +143,19 @@ def test_send_raises_when_bot_api_returns_an_error_for_photo(
         thumbnail="https://example.com/hello-world.jpg",
     )
 
-    with pytest.raises(requests.exceptions.HTTPError):
+    with pytest.raises(TelegramError):
         notifier.send(article)
 
 
 def test_send_raises_when_bot_api_returns_an_error(httpserver: HTTPServer) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendMessage", method="POST"
-    ).respond_with_response(Response(status=500))
+        f"/bot{BOT_TOKEN}/sendMessage", method="POST"
+    ).respond_with_json(
+        {"ok": False, "description": "Bad Request: message text is empty"}, status=400
+    )
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -136,21 +165,22 @@ def test_send_raises_when_bot_api_returns_an_error(httpserver: HTTPServer) -> No
         summary=None,
     )
 
-    with pytest.raises(requests.exceptions.HTTPError):
+    with pytest.raises(TelegramError):
         notifier.send(article)
 
 
 def test_send_logs_payload_and_response_when_bot_api_returns_an_error(
     httpserver: HTTPServer, caplog: pytest.LogCaptureFixture
 ) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendMessage", method="POST"
+        f"/bot{BOT_TOKEN}/sendMessage", method="POST"
     ).respond_with_json(
-        {"ok": False, "description": "Bad Request: message text is empty"},
+        {"ok": False, "description": "Bad Request: article rejected by moderation"},
         status=400,
     )
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -160,24 +190,24 @@ def test_send_logs_payload_and_response_when_bot_api_returns_an_error(
         summary=None,
     )
 
-    with caplog.at_level(logging.ERROR), pytest.raises(requests.exceptions.HTTPError):
+    with caplog.at_level(logging.ERROR), pytest.raises(TelegramError):
         notifier.send(article)
 
     messages = [record.getMessage() for record in caplog.records]
-    assert any("400" in message for message in messages)
     assert any("Hello World" in message for message in messages)
-    assert any("Bad Request: message text is empty" in message for message in messages)
-    assert not any("fake-token" in message for message in messages)
+    assert any("Article rejected by moderation" in message for message in messages)
+    assert not any(BOT_TOKEN in message for message in messages)
 
 
 def test_send_truncates_long_summary_to_fit_telegrams_message_limit(
     httpserver: HTTPServer,
 ) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendMessage", method="POST"
-    ).respond_with_response(Response(status=200))
+        f"/bot{BOT_TOKEN}/sendMessage", method="POST"
+    ).respond_with_json(_ok_message_response())
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -189,7 +219,7 @@ def test_send_truncates_long_summary_to_fit_telegrams_message_limit(
 
     notifier.send(article)
 
-    text = httpserver.log[0][0].get_json()["text"]
+    text = _last_request_body(httpserver)["text"]
     rendered = html_to_text(text)
     assert rendered is not None
     assert len(rendered) <= 4096
@@ -201,11 +231,12 @@ def test_send_truncates_long_summary_to_fit_telegrams_message_limit(
 def test_send_truncates_long_caption_to_fit_telegrams_caption_limit(
     httpserver: HTTPServer,
 ) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendPhoto", method="POST"
-    ).respond_with_response(Response(status=200))
+        f"/bot{BOT_TOKEN}/sendPhoto", method="POST"
+    ).respond_with_json(_ok_message_response())
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Hello World",
@@ -218,7 +249,7 @@ def test_send_truncates_long_caption_to_fit_telegrams_caption_limit(
 
     notifier.send(article)
 
-    caption = httpserver.log[0][0].get_json()["caption"]
+    caption = _last_request_body(httpserver)["caption"]
     rendered = html_to_text(caption)
     assert rendered is not None
     assert len(rendered) <= 1024
@@ -230,11 +261,12 @@ def test_send_truncates_long_caption_to_fit_telegrams_caption_limit(
 def test_send_escapes_html_special_characters_in_title_and_summary(
     httpserver: HTTPServer,
 ) -> None:
+    _expect_get_me(httpserver)
     httpserver.expect_request(
-        "/botfake-token/sendMessage", method="POST"
-    ).respond_with_response(Response(status=200))
+        f"/bot{BOT_TOKEN}/sendMessage", method="POST"
+    ).respond_with_json(_ok_message_response())
     notifier = TelegramNotifier(
-        api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
+        api_base_url=httpserver.url_for(""), bot_token=BOT_TOKEN, chat_id="12345"
     )
     article = Article(
         title="Fish & Chips <Yum>",
@@ -246,7 +278,7 @@ def test_send_escapes_html_special_characters_in_title_and_summary(
 
     notifier.send(article)
 
-    text = httpserver.log[0][0].get_json()["text"]
+    text = _last_request_body(httpserver)["text"]
     assert "<b>🔥🔥 Fish &amp; Chips &lt;Yum&gt; 🔥🔥</b>" in text
     assert "<blockquote>Rated 5 &gt; 4 stars</blockquote>" in text
     assert "🔗 https://example.com/hello-world?a=1&amp;b=2" in text

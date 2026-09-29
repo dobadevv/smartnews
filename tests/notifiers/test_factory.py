@@ -15,14 +15,15 @@ def test_build_notifiers_returns_empty_list_when_none_enabled() -> None:
 def test_build_notifiers_builds_discord_notifier_from_env_when_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.example.com/webhook")
+    webhook_url = f"https://discord.com/api/webhooks/123456789012345678/{'b' * 68}"
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", webhook_url)
     config = NotifiersConfig(discord={"enabled": True})
 
     notifiers = build_notifiers(config)
 
     assert len(notifiers) == 1
     assert isinstance(notifiers[0], DiscordNotifier)
-    assert notifiers[0]._webhook_url == "https://discord.example.com/webhook"
+    assert notifiers[0]._webhook.url == webhook_url
 
 
 def test_build_notifiers_raises_when_discord_enabled_but_env_var_missing(

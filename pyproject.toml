@@ -8,10 +8,12 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "discord-py>=2.7.1",
     "feedparser>=6.0.14",
     "groq>=1.7.0",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
+    "python-telegram-bot>=22.8",
     "pyyaml>=6.0.3",
     "requests>=2.34.2",
 ]
@@ -31,6 +33,7 @@ dev = [
     "ipython>=9.17.1",
     "pytest>=9.1.1",
     "pytest-httpserver>=1.1.5",
+    "responses>=0.26.3",
     "ruff>=0.16.8",
     "testcontainers[postgres]>=4.15.0",
 ]
