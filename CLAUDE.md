@@ -95,7 +95,7 @@ src/smartnews/
     discord.py
     telegram.py
     factory.py           # builds active notifiers from config + env vars
-  pipeline.py           # generator streaming pipeline: fetch -> dedup -> filter -> send, one article at a time
+  pipeline.py           # generator streaming pipeline: fetch -> dedup+cap -> filter -> send, one article at a time
   scheduler.py           # runs the pipeline on an interval
   __init__.py            # main() entrypoint / service bootstrap
 config/
@@ -118,19 +118,21 @@ config/
       If no notifier is enabled, articles go straight to
       `stream_translated` and are printed to stdout — there's no dedup
       store to check against, and no cap, in this fallback mode.
-   b. `stream_unseen_for_any_channel`: for each article, keep it only if
-      it's still unseen on at least one enabled channel (union across
-      notifiers), so the filter never re-translates an article every
-      channel has already received.
-   c. `stream_capped_to_max_posts`: cap each source's *still-unseen*
-      articles to its configured `max_posts`, so it acts as a
-      backlog-draining floor — once a source's newest item has been sent,
-      the next-oldest unsent item from that source surfaces on the next
-      cycle instead of the source going silent. Capping runs after dedup
-      (not before) precisely so already-sent items don't consume the cap.
-   d. `stream_translated`: run each still-unseen, capped article through
+   b. `stream_unseen_capped_to_max_posts`: for each article, keep it only
+      if it's still unseen on at least one enabled channel (union across
+      notifiers) *and* its source hasn't yet hit its configured
+      `max_posts` for this cycle, so the filter never re-translates an
+      article every channel has already received. The cap is checked
+      before the dedup lookup: once a source's cap is filled, later
+      articles from that source are skipped without a `SeenStore` call,
+      since they'd be dropped either way. `max_posts` acts as a
+      backlog-draining floor rather than a hard per-cycle limit — because
+      the cap only counts *still-unseen* articles, once a source's newest
+      item has been sent, the next-oldest unsent item from that source
+      surfaces on the next cycle instead of the source going silent.
+   c. `stream_translated`: run each still-unseen, capped article through
       the configured `Filter` implementation, one call per article.
-   e. `run_notify_pipeline`: for each translated article, loop over every
+   d. `run_notify_pipeline`: for each translated article, loop over every
       active `Notifier` (its own channel, e.g. `"discord"`, `"telegram"`):
       i. Dedup again: ask the `SeenStore` whether this article's key is
          seen on *this specific* channel — step (b) only guarantees

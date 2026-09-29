@@ -8,10 +8,9 @@ from smartnews.models import Article
 from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
-    stream_capped_to_max_posts,
     stream_enabled_sources,
     stream_translated,
-    stream_unseen_for_any_channel,
+    stream_unseen_capped_to_max_posts,
 )
 
 
@@ -159,32 +158,38 @@ class FakeNotifier:
         self.sent.append(article)
 
 
-def test_stream_unseen_for_any_channel_keeps_article_unseen_on_at_least_one_channel() -> (
+def test_stream_unseen_capped_to_max_posts_keeps_article_unseen_on_at_least_one_channel() -> (
     None
 ):
     article = make_article("https://example.com/a")
     seen_store = FakeSeenStore()
     seen_store.mark_seen(article_key(article), "discord")
     notifiers = [FakeNotifier("discord"), FakeNotifier("telegram")]
+    sources = [SourceConfig(name="example", url="https://a")]
 
-    result = list(stream_unseen_for_any_channel([article], seen_store, notifiers))
+    result = list(
+        stream_unseen_capped_to_max_posts([article], seen_store, notifiers, sources)
+    )
 
     assert result == [article]
 
 
-def test_stream_unseen_for_any_channel_drops_article_seen_on_every_channel() -> None:
+def test_stream_unseen_capped_to_max_posts_drops_article_seen_on_every_channel() -> None:
     article = make_article("https://example.com/a")
     seen_store = FakeSeenStore()
     seen_store.mark_seen(article_key(article), "discord")
     seen_store.mark_seen(article_key(article), "telegram")
     notifiers = [FakeNotifier("discord"), FakeNotifier("telegram")]
+    sources = [SourceConfig(name="example", url="https://a")]
 
-    result = list(stream_unseen_for_any_channel([article], seen_store, notifiers))
+    result = list(
+        stream_unseen_capped_to_max_posts([article], seen_store, notifiers, sources)
+    )
 
     assert result == []
 
 
-def test_stream_unseen_for_any_channel_preserves_order_without_duplicates() -> None:
+def test_stream_unseen_capped_to_max_posts_preserves_order_without_duplicates() -> None:
     articles = [
         make_article("https://example.com/0"),
         make_article("https://example.com/1"),
@@ -194,17 +199,23 @@ def test_stream_unseen_for_any_channel_preserves_order_without_duplicates() -> N
     seen_store.mark_seen(article_key(articles[1]), "discord")
     seen_store.mark_seen(article_key(articles[1]), "telegram")
     notifiers = [FakeNotifier("discord"), FakeNotifier("telegram")]
+    sources = [SourceConfig(name="example", url="https://a")]
 
-    result = list(stream_unseen_for_any_channel(articles, seen_store, notifiers))
+    result = list(
+        stream_unseen_capped_to_max_posts(articles, seen_store, notifiers, sources)
+    )
 
     assert result == [articles[0], articles[2]]
 
 
-def test_stream_unseen_for_any_channel_returns_all_articles_when_no_notifiers() -> None:
+def test_stream_unseen_capped_to_max_posts_returns_all_articles_when_no_notifiers() -> (
+    None
+):
     articles = [make_article("https://example.com/a")]
     seen_store = FakeSeenStore()
+    sources = [SourceConfig(name="example", url="https://a")]
 
-    result = list(stream_unseen_for_any_channel(articles, seen_store, []))
+    result = list(stream_unseen_capped_to_max_posts(articles, seen_store, [], sources))
 
     assert result == articles
 
@@ -212,11 +223,10 @@ def test_stream_unseen_for_any_channel_returns_all_articles_when_no_notifiers() 
 def test_dedup_before_cap_still_surfaces_an_older_unsent_article_once_the_newest_is_seen() -> (
     None
 ):
-    """Cap runs after dedup (stream_capped_to_max_posts, applied after
-    stream_unseen_for_any_channel), so max_posts is a backlog-draining
-    floor: once a source's newest item has been sent, the next-oldest
-    still-unsent item from that source surfaces instead of the source going
-    silent for the rest of the cycle."""
+    """max_posts is a backlog-draining floor, applied after the dedup check:
+    once a source's newest item has been sent, the next-oldest still-unsent
+    item from that source surfaces instead of the source going silent for
+    the rest of the cycle."""
 
     class ThreeArticlesFetcher:
         def fetch(self, source: SourceConfig) -> list[Article]:
@@ -236,25 +246,30 @@ def test_dedup_before_cap_still_surfaces_an_older_unsent_article_once_the_newest
     )
     seen_store.mark_seen(article_key(newest_article), "discord")
 
-    unseen = stream_unseen_for_any_channel(fetched, seen_store, [notifier])
-    capped = stream_capped_to_max_posts(unseen, sources)
+    result = stream_unseen_capped_to_max_posts(
+        fetched, seen_store, [notifier], sources
+    )
 
-    assert [a.url for a in capped] == ["https://example.com/hacker-news-1"]
+    assert [a.url for a in result] == ["https://example.com/hacker-news-1"]
 
 
-def test_stream_capped_to_max_posts_caps_articles_per_source() -> None:
+def test_stream_unseen_capped_to_max_posts_caps_articles_per_source() -> None:
     articles = [
         make_article(f"https://example.com/{i}", source="hacker-news")
         for i in range(3)
     ]
     sources = [SourceConfig(name="hacker-news", url="https://a", max_posts=2)]
+    seen_store = FakeSeenStore()
+    notifier = FakeNotifier("discord")
 
-    result = list(stream_capped_to_max_posts(iter(articles), sources))
+    result = list(
+        stream_unseen_capped_to_max_posts(iter(articles), seen_store, [notifier], sources)
+    )
 
     assert result == articles[:2]
 
 
-def test_stream_capped_to_max_posts_leaves_source_unbounded_when_no_max_configured() -> (
+def test_stream_unseen_capped_to_max_posts_leaves_source_unbounded_when_no_max_configured() -> (
     None
 ):
     articles = [
@@ -262,13 +277,17 @@ def test_stream_capped_to_max_posts_leaves_source_unbounded_when_no_max_configur
         for i in range(3)
     ]
     sources = [SourceConfig(name="hacker-news", url="https://a")]
+    seen_store = FakeSeenStore()
+    notifier = FakeNotifier("discord")
 
-    result = list(stream_capped_to_max_posts(iter(articles), sources))
+    result = list(
+        stream_unseen_capped_to_max_posts(iter(articles), seen_store, [notifier], sources)
+    )
 
     assert result == articles
 
 
-def test_stream_capped_to_max_posts_applies_independently_per_source() -> None:
+def test_stream_unseen_capped_to_max_posts_applies_independently_per_source() -> None:
     articles = [
         make_article("https://example.com/a0", source="source-a"),
         make_article("https://example.com/a1", source="source-a"),
@@ -279,10 +298,47 @@ def test_stream_capped_to_max_posts_applies_independently_per_source() -> None:
         SourceConfig(name="source-a", url="https://a", max_posts=1),
         SourceConfig(name="source-b", url="https://b", max_posts=2),
     ]
+    seen_store = FakeSeenStore()
+    notifier = FakeNotifier("discord")
 
-    result = list(stream_capped_to_max_posts(iter(articles), sources))
+    result = list(
+        stream_unseen_capped_to_max_posts(iter(articles), seen_store, [notifier], sources)
+    )
 
     assert result == [articles[0], articles[2], articles[3]]
+
+
+def test_stream_unseen_capped_to_max_posts_stops_checking_seen_status_once_cap_reached() -> (
+    None
+):
+    """Regression test: once a source's cap is filled, further articles from
+    that source must be skipped without a seen-store lookup, since they will
+    be dropped by the cap regardless of their seen status. Checking anyway
+    would waste one is_seen round-trip per leftover article on every cycle."""
+
+    class CountingSeenStore(FakeSeenStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.is_seen_call_count = 0
+
+        def is_seen(self, key: str, channel: str) -> bool:
+            self.is_seen_call_count += 1
+            return super().is_seen(key, channel)
+
+    articles = [
+        make_article(f"https://example.com/{i}", source="hacker-news")
+        for i in range(3)
+    ]
+    sources = [SourceConfig(name="hacker-news", url="https://a", max_posts=1)]
+    seen_store = CountingSeenStore()
+    notifier = FakeNotifier("discord")
+
+    result = list(
+        stream_unseen_capped_to_max_posts(iter(articles), seen_store, [notifier], sources)
+    )
+
+    assert result == [articles[0]]
+    assert seen_store.is_seen_call_count == 1
 
 
 def test_run_notify_pipeline_sends_unseen_article_and_marks_it_seen() -> None:
@@ -486,7 +542,7 @@ def test_pipeline_processes_each_article_end_to_end_before_the_next_is_fetched()
     notifiers = [EventNotifier()]
 
     fetched = stream_enabled_sources(sources, EventFetcher())
-    unseen = stream_unseen_for_any_channel(fetched, seen_store, notifiers)
+    unseen = stream_unseen_capped_to_max_posts(fetched, seen_store, notifiers, sources)
     translated = stream_translated(unseen, EventFilter())
     run_notify_pipeline(translated, notifiers, seen_store)
 

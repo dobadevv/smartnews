@@ -9,10 +9,9 @@ from smartnews.notifiers.factory import build_notifiers
 from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
-    stream_capped_to_max_posts,
     stream_enabled_sources,
     stream_translated,
-    stream_unseen_for_any_channel,
+    stream_unseen_capped_to_max_posts,
 )
 from smartnews.repository.postgres import PostgresSeenStore
 
@@ -56,8 +55,9 @@ def main() -> None:
     logger.info("connecting to database")
     with PostgresSeenStore(database_url) as seen_store:
         seen_store.ensure_schema()
-        unseen = stream_unseen_for_any_channel(articles, seen_store, notifiers)
-        capped = stream_capped_to_max_posts(unseen, sources)
+        capped = stream_unseen_capped_to_max_posts(
+            articles, seen_store, notifiers, sources
+        )
         translated = stream_translated(capped, article_filter)
         run_notify_pipeline(translated, notifiers, seen_store)
     logger.info("run complete")

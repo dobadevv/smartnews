@@ -28,34 +28,33 @@ def stream_enabled_sources(
         yield from fetched
 
 
-def stream_unseen_for_any_channel(
-    articles: Iterator[Article], seen_store: SeenStore, notifiers: list[Notifier]
-) -> Iterator[Article]:
-    if not notifiers:
-        yield from articles
-        return
-    for article in articles:
-        key = article_key(article)
-        if any(
-            not seen_store.is_seen(key, notifier.channel) for notifier in notifiers
-        ):
-            yield article
-
-
-def stream_capped_to_max_posts(
-    articles: Iterator[Article], sources: list[SourceConfig]
+def stream_unseen_capped_to_max_posts(
+    articles: Iterator[Article],
+    seen_store: SeenStore,
+    notifiers: list[Notifier],
+    sources: list[SourceConfig],
 ) -> Iterator[Article]:
     max_posts_by_source = _max_posts_by_source(sources)
     sent_count_by_source: dict[str, int] = {}
     for article in articles:
         max_posts = max_posts_by_source.get(article.source)
-        if max_posts is None:
-            yield article
-            continue
         sent_count = sent_count_by_source.get(article.source, 0)
-        if sent_count < max_posts:
-            yield article
-            sent_count_by_source[article.source] = sent_count + 1
+        if max_posts is not None and sent_count >= max_posts:
+            # Cap already filled for this source: skip without a seen-store
+            # lookup, since the article would be dropped regardless of
+            # whether it's still unseen.
+            continue
+        if notifiers and not _unseen_on_any_channel(article, seen_store, notifiers):
+            continue
+        yield article
+        sent_count_by_source[article.source] = sent_count + 1
+
+
+def _unseen_on_any_channel(
+    article: Article, seen_store: SeenStore, notifiers: list[Notifier]
+) -> bool:
+    key = article_key(article)
+    return any(not seen_store.is_seen(key, notifier.channel) for notifier in notifiers)
 
 
 def run_notify_pipeline(
