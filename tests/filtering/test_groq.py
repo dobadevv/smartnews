@@ -129,6 +129,49 @@ def test_filter_keeps_original_article_when_response_is_malformed(
     assert result == article
 
 
+def test_filter_keeps_retrying_past_the_sdk_retry_budget_while_rate_limited(
+    httpserver: HTTPServer,
+) -> None:
+    for _ in range(3):
+        httpserver.expect_ordered_request(
+            ENDPOINT, method="POST"
+        ).respond_with_response(Response(status=429, headers={"Retry-After": "0.01"}))
+    httpserver.expect_ordered_request(ENDPOINT, method="POST").respond_with_json(
+        groq_response("Đã dịch", "Bản tóm tắt.")
+    )
+    groq_filter = GroqFilter(
+        api_key="fake-key",
+        api_base_url=httpserver.url_for(""),
+        rate_limit_timeout=5,
+    )
+
+    result = groq_filter.filter(make_article(title="Original", summary="s1"))
+
+    assert result.title == "Đã dịch"
+    assert result.summary == "Bản tóm tắt."
+
+
+def test_filter_keeps_original_article_when_rate_limit_outlasts_the_timeout(
+    httpserver: HTTPServer, caplog: pytest.LogCaptureFixture
+) -> None:
+    httpserver.expect_request(ENDPOINT, method="POST").respond_with_response(
+        Response(status=429, headers={"Retry-After": "0.05"})
+    )
+    groq_filter = GroqFilter(
+        api_key="fake-key",
+        api_base_url=httpserver.url_for(""),
+        rate_limit_timeout=0.05,
+    )
+    article = make_article()
+
+    with caplog.at_level(logging.ERROR):
+        result = groq_filter.filter(article)
+
+    assert result == article
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("429" in message for message in messages)
+
+
 def test_filter_next_call_is_unaffected_after_a_previous_call_exhausted_retries(
     httpserver: HTTPServer,
 ) -> None:
