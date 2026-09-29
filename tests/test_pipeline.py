@@ -7,7 +7,9 @@ from smartnews.dedup import article_key
 from smartnews.models import Article
 from smartnews.pipeline import (
     run_notify_pipeline,
+    run_print_pipeline,
     stream_enabled_sources,
+    stream_translated,
     stream_unseen_for_any_channel,
 )
 
@@ -333,3 +335,61 @@ def test_run_notify_pipeline_logs_sent_count_per_notifier(
 
     messages = [record.getMessage() for record in caplog.records]
     assert any("discord" in message and "1" in message for message in messages)
+
+
+class FakeFilter:
+    def __init__(self, *, fail_titles: frozenset[str] = frozenset()) -> None:
+        self._fail_titles = fail_titles
+        self.calls: list[str] = []
+
+    def filter(self, article: Article) -> Article:
+        self.calls.append(article.title)
+        if article.title in self._fail_titles:
+            return article
+        return Article(
+            title=f"translated: {article.title}",
+            url=article.url,
+            source=article.source,
+            published_at=article.published_at,
+            summary=article.summary,
+        )
+
+
+def test_stream_translated_applies_filter_to_each_article() -> None:
+    articles = [
+        make_article("https://example.com/0", title="a"),
+        make_article("https://example.com/1", title="b"),
+    ]
+    article_filter = FakeFilter()
+
+    result = list(stream_translated(iter(articles), article_filter))
+
+    assert [a.title for a in result] == ["translated: a", "translated: b"]
+
+
+def test_stream_translated_calls_filter_independently_per_article() -> None:
+    articles = [
+        make_article("https://example.com/0", title="fails"),
+        make_article("https://example.com/1", title="succeeds"),
+    ]
+    article_filter = FakeFilter(fail_titles=frozenset({"fails"}))
+
+    result = list(stream_translated(iter(articles), article_filter))
+
+    assert result[0].title == "fails"
+    assert result[1].title == "translated: succeeds"
+
+
+def test_run_print_pipeline_prints_every_article(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    articles = [
+        make_article("https://example.com/0", title="a"),
+        make_article("https://example.com/1", title="b"),
+    ]
+
+    run_print_pipeline(iter(articles))
+
+    out = capsys.readouterr().out
+    assert "a" in out
+    assert "b" in out

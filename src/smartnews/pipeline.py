@@ -4,8 +4,10 @@ from collections.abc import Iterator
 from smartnews.config import SourceConfig
 from smartnews.dedup import article_key
 from smartnews.fetching.base import Fetcher
+from smartnews.filtering.base import Filter
 from smartnews.models import Article
 from smartnews.notifiers.base import Notifier
+from smartnews.output import print_article
 from smartnews.repository.base import SeenStore
 
 logger = logging.getLogger(__name__)
@@ -81,6 +83,18 @@ def _send_and_mark(
         return False
     seen_store.mark_seen(key, notifier.channel)
     return True
+
+
+def stream_translated(
+    articles: Iterator[Article], article_filter: Filter
+) -> Iterator[Article]:
+    for article in articles:
+        yield article_filter.filter(article)
+
+
+def run_print_pipeline(articles: Iterator[Article]) -> None:
+    for article in articles:
+        print_article(article)
 
 
 def _minimum_posts_by_source(sources: list[SourceConfig]) -> dict[str, int]:

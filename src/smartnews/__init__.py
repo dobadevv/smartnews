@@ -6,8 +6,14 @@ from smartnews.config import load_filter, load_notifiers, load_sources
 from smartnews.fetching.rss import RssFetcher
 from smartnews.filtering.factory import build_filter
 from smartnews.notifiers.factory import build_notifiers
-from smartnews.output import print_article
-from smartnews.pipeline import stream_enabled_sources
+from smartnews.pipeline import (
+    run_notify_pipeline,
+    run_print_pipeline,
+    stream_enabled_sources,
+    stream_translated,
+    stream_unseen_for_any_channel,
+)
+from smartnews.repository.postgres import PostgresSeenStore
 
 DEFAULT_CONFIG_PATH = Path("config/sources.yaml")
 
@@ -36,8 +42,7 @@ def main() -> None:
 
     if not notifiers:
         logger.info("no notifiers enabled; printing to stdout")
-        for article in articles:
-            print_article(article_filter.filter(article))
+        run_print_pipeline(stream_translated(articles, article_filter))
         logger.info("run complete")
         return
 
@@ -47,9 +52,10 @@ def main() -> None:
             "DATABASE_URL must be set when at least one notifier is enabled"
         )
 
-    # Notifier dispatch is being rewired onto the generator pipeline across
-    # Task 6 (dedup + notify streaming) and Task 7 (translation + final
-    # wiring); this branch is completed by Task 7's rewrite.
-    raise NotImplementedError(
-        "notifier dispatch is being rewired for the generator pipeline"
-    )
+    logger.info("connecting to database")
+    with PostgresSeenStore(database_url) as seen_store:
+        seen_store.ensure_schema()
+        unseen = stream_unseen_for_any_channel(articles, seen_store, notifiers)
+        translated = stream_translated(unseen, article_filter)
+        run_notify_pipeline(translated, notifiers, seen_store)
+    logger.info("run complete")
