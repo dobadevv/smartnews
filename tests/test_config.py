@@ -81,6 +81,39 @@ def test_load_sources_defaults_max_posts_to_none_when_omitted(
     assert sources[0].max_posts is None
 
 
+def test_load_sources_parses_lookback_days_when_provided(tmp_path: Path) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources:
+          - name: example-blog
+            url: https://example.com/feed.xml
+            lookback_days: 3
+        """,
+    )
+
+    sources = load_sources(path)
+
+    assert sources[0].lookback_days == 3
+
+
+def test_load_sources_defaults_lookback_days_to_seven_when_omitted(
+    tmp_path: Path,
+) -> None:
+    path = write_sources_yaml(
+        tmp_path,
+        """
+        sources:
+          - name: example-blog
+            url: https://example.com/feed.xml
+        """,
+    )
+
+    sources = load_sources(path)
+
+    assert sources[0].lookback_days == 7
+
+
 def test_load_notifiers_parses_enabled_flag_per_channel(tmp_path: Path) -> None:
     path = write_sources_yaml(
         tmp_path,

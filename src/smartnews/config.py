@@ -9,6 +9,7 @@ class SourceConfig(BaseModel):
     url: str
     enabled: bool = True
     max_posts: int | None = None
+    lookback_days: int = 7
 
 
 class NotifierConfig(BaseModel):

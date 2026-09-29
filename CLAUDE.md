@@ -95,7 +95,7 @@ src/smartnews/
     discord.py
     telegram.py
     factory.py           # builds active notifiers from config + env vars
-  pipeline.py           # generator streaming pipeline: fetch -> month-filter -> dedup+cap -> filter -> send, one article at a time
+  pipeline.py           # generator streaming pipeline: fetch -> lookback-filter -> dedup+cap -> filter -> send, one article at a time
   scheduler.py           # runs the pipeline on an interval
   __init__.py            # main() entrypoint / service bootstrap
 config/
@@ -115,16 +115,18 @@ config/
       capping yet. If fetching a source raises, that source is logged and
       skipped; articles already streamed from earlier sources in the same
       cycle are unaffected, and the failing source is retried next cycle.
-   b. `stream_published_in_current_month`: drop articles whose
-      `published_at` falls in a month other than the current one (UTC).
-      An article with no parseable `published_at` is kept rather than
-      dropped, since there's no reliable date to judge it against. This
-      runs first, before dedup or capping, since it's a pure in-memory
-      check with no I/O — no point spending a `SeenStore` lookup or a cap
-      slot on an article that's stale anyway. If no notifier is enabled,
-      surviving articles go straight to `stream_translated` and are
-      printed to stdout — there's no dedup store to check against, and no
-      cap, in this fallback mode.
+   b. `stream_published_within_lookback_days`: drop articles whose
+      `published_at` is older than the source's configured
+      `lookback_days` (UTC, default 7, overridable per source). A
+      future-dated article (clock skew) is kept, and an article with no
+      parseable `published_at` is kept too, since there's no reliable
+      date to judge it against. This runs first, before dedup or
+      capping, since it's a pure in-memory check with no I/O — no point
+      spending a `SeenStore` lookup or a cap slot on an article that's
+      stale anyway. If no notifier is enabled, surviving articles go
+      straight to `stream_translated` and are printed to stdout —
+      there's no dedup store to check against, and no cap, in this
+      fallback mode.
    c. `stream_unseen_capped_to_max_posts`: for each article, keep it only
       if it's still unseen on at least one enabled channel (union across
       notifiers) *and* its source hasn't yet hit its configured

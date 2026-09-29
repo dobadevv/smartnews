@@ -10,7 +10,7 @@ from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
     stream_enabled_sources,
-    stream_published_in_current_month,
+    stream_published_within_lookback_days,
     stream_translated,
     stream_unseen_capped_to_max_posts,
 )
@@ -142,58 +142,106 @@ def test_stream_enabled_sources_logs_the_fetch_failure(
     assert any("broken" in message for message in messages)
 
 
-def test_stream_published_in_current_month_keeps_article_published_this_month() -> None:
+def test_stream_published_within_lookback_days_keeps_article_inside_the_window() -> None:
     now = datetime(2026, 9, 15, tzinfo=UTC)
+    sources = [SourceConfig(name="example", url="https://a", lookback_days=7)]
+    article = make_article(
+        "https://example.com/a", published_at=datetime(2026, 9, 10, tzinfo=UTC)
+    )
+
+    result = list(stream_published_within_lookback_days([article], sources, now=now))
+
+    assert result == [article]
+
+
+def test_stream_published_within_lookback_days_drops_article_older_than_the_window() -> (
+    None
+):
+    now = datetime(2026, 9, 15, tzinfo=UTC)
+    sources = [SourceConfig(name="example", url="https://a", lookback_days=7)]
     article = make_article(
         "https://example.com/a", published_at=datetime(2026, 9, 1, tzinfo=UTC)
     )
 
-    result = list(stream_published_in_current_month([article], now=now))
+    result = list(stream_published_within_lookback_days([article], sources, now=now))
+
+    assert result == []
+
+
+def test_stream_published_within_lookback_days_keeps_article_exactly_at_the_boundary() -> (
+    None
+):
+    now = datetime(2026, 9, 15, tzinfo=UTC)
+    sources = [SourceConfig(name="example", url="https://a", lookback_days=7)]
+    article = make_article(
+        "https://example.com/a", published_at=datetime(2026, 9, 8, tzinfo=UTC)
+    )
+
+    result = list(stream_published_within_lookback_days([article], sources, now=now))
 
     assert result == [article]
 
 
-def test_stream_published_in_current_month_drops_article_published_last_month() -> None:
+def test_stream_published_within_lookback_days_applies_independently_per_source() -> None:
     now = datetime(2026, 9, 15, tzinfo=UTC)
-    article = make_article(
-        "https://example.com/a", published_at=datetime(2026, 8, 31, tzinfo=UTC)
+    sources = [
+        SourceConfig(name="strict", url="https://a", lookback_days=1),
+        SourceConfig(name="lenient", url="https://b", lookback_days=7),
+    ]
+    published_three_days_ago = datetime(2026, 9, 12, tzinfo=UTC)
+    strict_article = make_article(
+        "https://example.com/strict",
+        source="strict",
+        published_at=published_three_days_ago,
+    )
+    lenient_article = make_article(
+        "https://example.com/lenient",
+        source="lenient",
+        published_at=published_three_days_ago,
     )
 
-    result = list(stream_published_in_current_month([article], now=now))
-
-    assert result == []
-
-
-def test_stream_published_in_current_month_drops_article_from_the_same_month_last_year() -> (
-    None
-):
-    now = datetime(2026, 1, 15, tzinfo=UTC)
-    article = make_article(
-        "https://example.com/a", published_at=datetime(2025, 1, 20, tzinfo=UTC)
+    result = list(
+        stream_published_within_lookback_days(
+            [strict_article, lenient_article], sources, now=now
+        )
     )
 
-    result = list(stream_published_in_current_month([article], now=now))
-
-    assert result == []
+    assert result == [lenient_article]
 
 
-def test_stream_published_in_current_month_keeps_article_with_unknown_published_date() -> (
+def test_stream_published_within_lookback_days_keeps_article_with_unknown_published_date() -> (
     None
 ):
     now = datetime(2026, 9, 15, tzinfo=UTC)
+    sources = [SourceConfig(name="example", url="https://a", lookback_days=7)]
     article = make_article("https://example.com/a", published_at=None)
 
-    result = list(stream_published_in_current_month([article], now=now))
+    result = list(stream_published_within_lookback_days([article], sources, now=now))
 
     assert result == [article]
 
 
-def test_stream_published_in_current_month_defaults_to_the_real_current_month() -> None:
+def test_stream_published_within_lookback_days_keeps_future_dated_article() -> None:
+    now = datetime(2026, 9, 15, tzinfo=UTC)
+    sources = [SourceConfig(name="example", url="https://a", lookback_days=7)]
+    article = make_article(
+        "https://example.com/a", published_at=datetime(2026, 9, 20, tzinfo=UTC)
+    )
+
+    result = list(stream_published_within_lookback_days([article], sources, now=now))
+
+    assert result == [article]
+
+
+def test_stream_published_within_lookback_days_defaults_to_the_real_current_time() -> (
+    None
+):
+    sources = [SourceConfig(name="example", url="https://a", lookback_days=7)]
     article = make_article(
         "https://example.com/a", published_at=datetime.now(UTC)
     )
 
-    result = list(stream_published_in_current_month([article]))
+    result = list(stream_published_within_lookback_days([article], sources))
 
     assert result == [article]
 
