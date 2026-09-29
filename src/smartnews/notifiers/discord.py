@@ -20,18 +20,17 @@ class DiscordNotifier:
     def __init__(self, webhook_url: str) -> None:
         self._webhook_url = webhook_url
 
-    def send(self, articles: list[Article]) -> None:
-        for article in articles:
-            payload = {"embeds": [self._build_embed(article)]}
-            response = requests.post(self._webhook_url, json=payload, timeout=10)
-            if not response.ok:
-                logger.error(
-                    "discord webhook failed: status=%d payload=%s response=%s",
-                    response.status_code,
-                    payload,
-                    response.text,
-                )
-            response.raise_for_status()
+    def send(self, article: Article) -> None:
+        payload = {"embeds": [self._build_embed(article)]}
+        response = requests.post(self._webhook_url, json=payload, timeout=10)
+        if not response.ok:
+            logger.error(
+                "discord webhook failed: status=%d payload=%s response=%s",
+                response.status_code,
+                payload,
+                response.text,
+            )
+        response.raise_for_status()
 
     @staticmethod
     def _build_embed(article: Article) -> dict[str, object]:

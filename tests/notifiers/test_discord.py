@@ -24,7 +24,7 @@ def test_send_posts_a_bare_embed_when_no_category_summary_or_thumbnail(
         summary=None,
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     embed = httpserver.log[0][0].get_json()["embeds"][0]
     assert embed == {
@@ -47,7 +47,7 @@ def test_send_includes_category_and_summary_in_embed(httpserver: HTTPServer) -> 
         category="Tech",
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     embed = httpserver.log[0][0].get_json()["embeds"][0]
     assert embed["title"] == "[Tech] Hello World"
@@ -70,7 +70,7 @@ def test_send_includes_thumbnail_as_a_large_image_in_embed_when_present(
         thumbnail="https://example.com/hello-world.jpg",
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     embed = httpserver.log[0][0].get_json()["embeds"][0]
     assert embed["image"] == {"url": "https://example.com/hello-world.jpg"}
@@ -91,7 +91,7 @@ def test_send_raises_when_webhook_returns_an_error(httpserver: HTTPServer) -> No
     )
 
     with pytest.raises(requests.exceptions.HTTPError):
-        notifier.send([article])
+        notifier.send(article)
 
 
 def test_send_logs_payload_and_response_when_webhook_returns_an_error(
@@ -110,7 +110,7 @@ def test_send_logs_payload_and_response_when_webhook_returns_an_error(
     )
 
     with caplog.at_level(logging.ERROR), pytest.raises(requests.exceptions.HTTPError):
-        notifier.send([article])
+        notifier.send(article)
 
     messages = [record.getMessage() for record in caplog.records]
     assert any("400" in message for message in messages)
@@ -134,7 +134,7 @@ def test_send_truncates_long_title_to_fit_discords_title_limit(
         summary=None,
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     title = httpserver.log[0][0].get_json()["embeds"][0]["title"]
     assert len(title) <= 256
@@ -157,7 +157,7 @@ def test_send_truncates_long_summary_to_fit_discords_description_limit(
         summary="x" * 5000,
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     description = httpserver.log[0][0].get_json()["embeds"][0]["description"]
     assert len(description) <= 4096
@@ -181,7 +181,7 @@ def test_send_escapes_discord_markdown_special_characters_in_title(
         summary=None,
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     title = httpserver.log[0][0].get_json()["embeds"][0]["title"]
     assert title == r"AI\_powered \*thing\*"
@@ -202,7 +202,7 @@ def test_send_escapes_triple_backticks_in_summary_to_avoid_breaking_the_code_fen
         summary="before ```escape me``` after",
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     description = httpserver.log[0][0].get_json()["embeds"][0]["description"]
     assert description.startswith("```before")

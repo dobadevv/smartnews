@@ -1,53 +1,37 @@
 import pytest
 
 from smartnews.models import Article
-from smartnews.output import print_articles
+from smartnews.output import print_article
 
 
-def test_print_articles_prints_one_line_per_article(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    articles = [
-        Article(
-            title="Hello World",
-            url="https://example.com/hello-world",
-            source="example-blog",
-            published_at=None,
-            summary=None,
-        ),
-        Article(
-            title="Second Post",
-            url="https://example.com/second-post",
-            source="another-source",
-            published_at=None,
-            summary=None,
-        ),
-    ]
-
-    print_articles(articles)
-
-    out = capsys.readouterr().out
-    assert out == (
-        "[example-blog] Hello World - https://example.com/hello-world\n"
-        "[another-source] Second Post - https://example.com/second-post\n"
+def test_print_article_prints_one_line(capsys: pytest.CaptureFixture[str]) -> None:
+    article = Article(
+        title="Hello World",
+        url="https://example.com/hello-world",
+        source="example-blog",
+        published_at=None,
+        summary=None,
     )
 
+    print_article(article)
 
-def test_print_articles_includes_thumbnail_when_present(
+    out = capsys.readouterr().out
+    assert out == "[example-blog] Hello World - https://example.com/hello-world\n"
+
+
+def test_print_article_includes_thumbnail_when_present(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    articles = [
-        Article(
-            title="Hello World",
-            url="https://example.com/hello-world",
-            source="example-blog",
-            published_at=None,
-            summary=None,
-            thumbnail="https://example.com/hello-world.jpg",
-        )
-    ]
+    article = Article(
+        title="Hello World",
+        url="https://example.com/hello-world",
+        source="example-blog",
+        published_at=None,
+        summary=None,
+        thumbnail="https://example.com/hello-world.jpg",
+    )
 
-    print_articles(articles)
+    print_article(article)
 
     out = capsys.readouterr().out
     assert out == (

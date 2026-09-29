@@ -6,7 +6,7 @@ from smartnews.config import load_filter, load_notifiers, load_sources
 from smartnews.fetching.rss import RssFetcher
 from smartnews.filtering.factory import build_filter
 from smartnews.notifiers.factory import build_notifiers
-from smartnews.output import print_articles
+from smartnews.output import print_article
 from smartnews.pipeline import (
     dispatch_to_notifiers,
     fetch_enabled_sources,
@@ -42,7 +42,7 @@ def main() -> None:
 
     if not notifiers:
         logger.info("no notifiers enabled; printing to stdout")
-        print_articles(article_filter.filter(articles))
+        print_article(article_filter.filter(articles))
         logger.info("run complete")
         return
 

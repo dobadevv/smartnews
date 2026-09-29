@@ -24,36 +24,35 @@ class TelegramNotifier:
         self._bot_url = f"{api_base_url.rstrip('/')}/bot{bot_token}"
         self._chat_id = chat_id
 
-    def send(self, articles: list[Article]) -> None:
-        for article in articles:
-            if article.thumbnail:
-                endpoint = "sendPhoto"
-                payload = {
-                    "chat_id": self._chat_id,
-                    "photo": article.thumbnail,
-                    "caption": self._build_caption(article, max_length=CAPTION_LIMIT),
-                    "parse_mode": "HTML",
-                }
-            else:
-                endpoint = "sendMessage"
-                payload = {
-                    "chat_id": self._chat_id,
-                    "text": self._build_caption(article, max_length=MESSAGE_TEXT_LIMIT),
-                    "parse_mode": "HTML",
-                }
+    def send(self, article: Article) -> None:
+        if article.thumbnail:
+            endpoint = "sendPhoto"
+            payload = {
+                "chat_id": self._chat_id,
+                "photo": article.thumbnail,
+                "caption": self._build_caption(article, max_length=CAPTION_LIMIT),
+                "parse_mode": "HTML",
+            }
+        else:
+            endpoint = "sendMessage"
+            payload = {
+                "chat_id": self._chat_id,
+                "text": self._build_caption(article, max_length=MESSAGE_TEXT_LIMIT),
+                "parse_mode": "HTML",
+            }
 
-            response = requests.post(
-                f"{self._bot_url}/{endpoint}", json=payload, timeout=10
+        response = requests.post(
+            f"{self._bot_url}/{endpoint}", json=payload, timeout=10
+        )
+        if not response.ok:
+            logger.error(
+                "telegram %s failed: status=%d payload=%s response=%s",
+                endpoint,
+                response.status_code,
+                payload,
+                response.text,
             )
-            if not response.ok:
-                logger.error(
-                    "telegram %s failed: status=%d payload=%s response=%s",
-                    endpoint,
-                    response.status_code,
-                    payload,
-                    response.text,
-                )
-            response.raise_for_status()
+        response.raise_for_status()
 
     @staticmethod
     def _build_caption(article: Article, *, max_length: int) -> str:

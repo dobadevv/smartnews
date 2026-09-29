@@ -17,17 +17,15 @@ def test_send_posts_each_article_to_the_bot_api(httpserver: HTTPServer) -> None:
     notifier = TelegramNotifier(
         api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
     )
-    articles = [
-        Article(
-            title="Hello World",
-            url="https://example.com/hello-world",
-            source="example-blog",
-            published_at=None,
-            summary=None,
-        )
-    ]
+    article = Article(
+        title="Hello World",
+        url="https://example.com/hello-world",
+        source="example-blog",
+        published_at=None,
+        summary=None,
+    )
 
-    notifier.send(articles)
+    notifier.send(article)
 
     received_requests = httpserver.log
     assert len(received_requests) == 1
@@ -48,18 +46,16 @@ def test_send_includes_category_and_summary_in_text_when_no_thumbnail(
     notifier = TelegramNotifier(
         api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
     )
-    articles = [
-        Article(
-            title="Hello World",
-            url="https://example.com/hello-world",
-            source="example-blog",
-            published_at=None,
-            summary="A short summary.",
-            category="Tech",
-        )
-    ]
+    article = Article(
+        title="Hello World",
+        url="https://example.com/hello-world",
+        source="example-blog",
+        published_at=None,
+        summary="A short summary.",
+        category="Tech",
+    )
 
-    notifier.send(articles)
+    notifier.send(article)
 
     body = httpserver.log[0][0].get_json()
     assert body["text"] == (
@@ -78,19 +74,17 @@ def test_send_posts_photo_with_caption_when_thumbnail_present(
     notifier = TelegramNotifier(
         api_base_url=httpserver.url_for(""), bot_token="fake-token", chat_id="12345"
     )
-    articles = [
-        Article(
-            title="Hello World",
-            url="https://example.com/hello-world",
-            source="example-blog",
-            published_at=None,
-            summary="A short summary.",
-            thumbnail="https://example.com/hello-world.jpg",
-            category="Tech",
-        )
-    ]
+    article = Article(
+        title="Hello World",
+        url="https://example.com/hello-world",
+        source="example-blog",
+        published_at=None,
+        summary="A short summary.",
+        thumbnail="https://example.com/hello-world.jpg",
+        category="Tech",
+    )
 
-    notifier.send(articles)
+    notifier.send(article)
 
     received_requests = httpserver.log
     assert len(received_requests) == 1
@@ -124,7 +118,7 @@ def test_send_raises_when_bot_api_returns_an_error_for_photo(
     )
 
     with pytest.raises(requests.exceptions.HTTPError):
-        notifier.send([article])
+        notifier.send(article)
 
 
 def test_send_raises_when_bot_api_returns_an_error(httpserver: HTTPServer) -> None:
@@ -143,7 +137,7 @@ def test_send_raises_when_bot_api_returns_an_error(httpserver: HTTPServer) -> No
     )
 
     with pytest.raises(requests.exceptions.HTTPError):
-        notifier.send([article])
+        notifier.send(article)
 
 
 def test_send_logs_payload_and_response_when_bot_api_returns_an_error(
@@ -167,7 +161,7 @@ def test_send_logs_payload_and_response_when_bot_api_returns_an_error(
     )
 
     with caplog.at_level(logging.ERROR), pytest.raises(requests.exceptions.HTTPError):
-        notifier.send([article])
+        notifier.send(article)
 
     messages = [record.getMessage() for record in caplog.records]
     assert any("400" in message for message in messages)
@@ -193,7 +187,7 @@ def test_send_truncates_long_summary_to_fit_telegrams_message_limit(
         summary="x" * 5000,
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     text = httpserver.log[0][0].get_json()["text"]
     rendered = html_to_text(text)
@@ -222,7 +216,7 @@ def test_send_truncates_long_caption_to_fit_telegrams_caption_limit(
         thumbnail="https://example.com/hello-world.jpg",
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     caption = httpserver.log[0][0].get_json()["caption"]
     rendered = html_to_text(caption)
@@ -250,7 +244,7 @@ def test_send_escapes_html_special_characters_in_title_and_summary(
         summary="Rated 5 > 4 stars",
     )
 
-    notifier.send([article])
+    notifier.send(article)
 
     text = httpserver.log[0][0].get_json()["text"]
     assert "<b>🔥🔥 Fish &amp; Chips &lt;Yum&gt; 🔥🔥</b>" in text

@@ -24,10 +24,7 @@ class GroqFilter:
         self._model = model
         self._url = f"{api_base_url.rstrip('/')}/openai/v1/chat/completions"
 
-    def filter(self, articles: list[Article]) -> list[Article]:
-        return [self._translate_and_brief(article) for article in articles]
-
-    def _translate_and_brief(self, article: Article) -> Article:
+    def filter(self, article: Article) -> Article:
         try:
             title, summary = self._request(article)
         except Exception:
