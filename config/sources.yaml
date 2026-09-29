@@ -354,7 +354,7 @@ sources:
 
 notifiers:
   discord:
-    enabled: false
+    enabled: true
   telegram:
     enabled: true
 
