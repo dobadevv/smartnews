@@ -32,10 +32,7 @@ class GeminiFilter:
         self._api_key = api_key
         self._url = f"{api_base_url.rstrip('/')}/v1beta/models/{model}:generateContent"
 
-    def filter(self, articles: list[Article]) -> list[Article]:
-        return [self._translate_and_brief(article) for article in articles]
-
-    def _translate_and_brief(self, article: Article) -> Article:
+    def filter(self, article: Article) -> Article:
         try:
             title, summary = self._request(article)
         except Exception:
