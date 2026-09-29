@@ -8,7 +8,7 @@ class SourceConfig(BaseModel):
     name: str
     url: str
     enabled: bool = True
-    minimum_posts: int | None = None
+    max_posts: int | None = None
 
 
 class NotifierConfig(BaseModel):

@@ -42,18 +42,18 @@ def stream_unseen_for_any_channel(
             yield article
 
 
-def stream_capped_to_minimum_posts(
+def stream_capped_to_max_posts(
     articles: Iterator[Article], sources: list[SourceConfig]
 ) -> Iterator[Article]:
-    minimum_posts_by_source = _minimum_posts_by_source(sources)
+    max_posts_by_source = _max_posts_by_source(sources)
     sent_count_by_source: dict[str, int] = {}
     for article in articles:
-        minimum_posts = minimum_posts_by_source.get(article.source)
-        if minimum_posts is None:
+        max_posts = max_posts_by_source.get(article.source)
+        if max_posts is None:
             yield article
             continue
         sent_count = sent_count_by_source.get(article.source, 0)
-        if sent_count < minimum_posts:
+        if sent_count < max_posts:
             yield article
             sent_count_by_source[article.source] = sent_count + 1
 
@@ -106,9 +106,9 @@ def run_print_pipeline(articles: Iterator[Article]) -> None:
         print_article(article)
 
 
-def _minimum_posts_by_source(sources: list[SourceConfig]) -> dict[str, int]:
+def _max_posts_by_source(sources: list[SourceConfig]) -> dict[str, int]:
     return {
-        source.name: source.minimum_posts
+        source.name: source.max_posts
         for source in sources
-        if source.minimum_posts is not None
+        if source.max_posts is not None
     }

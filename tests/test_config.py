@@ -48,23 +48,23 @@ def test_load_sources_defaults_enabled_to_true_when_omitted(tmp_path: Path) -> N
     assert sources[0].enabled is True
 
 
-def test_load_sources_parses_minimum_posts_when_provided(tmp_path: Path) -> None:
+def test_load_sources_parses_max_posts_when_provided(tmp_path: Path) -> None:
     path = write_sources_yaml(
         tmp_path,
         """
         sources:
           - name: example-blog
             url: https://example.com/feed.xml
-            minimum_posts: 3
+            max_posts: 3
         """,
     )
 
     sources = load_sources(path)
 
-    assert sources[0].minimum_posts == 3
+    assert sources[0].max_posts == 3
 
 
-def test_load_sources_defaults_minimum_posts_to_none_when_omitted(
+def test_load_sources_defaults_max_posts_to_none_when_omitted(
     tmp_path: Path,
 ) -> None:
     path = write_sources_yaml(
@@ -78,7 +78,7 @@ def test_load_sources_defaults_minimum_posts_to_none_when_omitted(
 
     sources = load_sources(path)
 
-    assert sources[0].minimum_posts is None
+    assert sources[0].max_posts is None
 
 
 def test_load_notifiers_parses_enabled_flag_per_channel(tmp_path: Path) -> None:

@@ -122,8 +122,8 @@ config/
       it's still unseen on at least one enabled channel (union across
       notifiers), so the filter never re-translates an article every
       channel has already received.
-   c. `stream_capped_to_minimum_posts`: cap each source's *still-unseen*
-      articles to its configured `minimum_posts`, so it acts as a
+   c. `stream_capped_to_max_posts`: cap each source's *still-unseen*
+      articles to its configured `max_posts`, so it acts as a
       backlog-draining floor — once a source's newest item has been sent,
       the next-oldest unsent item from that source surfaces on the next
       cycle instead of the source going silent. Capping runs after dedup

@@ -8,7 +8,7 @@ from smartnews.models import Article
 from smartnews.pipeline import (
     run_notify_pipeline,
     run_print_pipeline,
-    stream_capped_to_minimum_posts,
+    stream_capped_to_max_posts,
     stream_enabled_sources,
     stream_translated,
     stream_unseen_for_any_channel,
@@ -96,7 +96,7 @@ def test_stream_enabled_sources_yields_all_fetched_articles_without_capping() ->
             ]
 
     sources = [
-        SourceConfig(name="hacker-news", url="https://a", minimum_posts=1),
+        SourceConfig(name="hacker-news", url="https://a", max_posts=1),
     ]
 
     articles = list(stream_enabled_sources(sources, ManyArticlesFetcher()))
@@ -212,8 +212,8 @@ def test_stream_unseen_for_any_channel_returns_all_articles_when_no_notifiers() 
 def test_dedup_before_cap_still_surfaces_an_older_unsent_article_once_the_newest_is_seen() -> (
     None
 ):
-    """Cap runs after dedup (stream_capped_to_minimum_posts, applied after
-    stream_unseen_for_any_channel), so minimum_posts is a backlog-draining
+    """Cap runs after dedup (stream_capped_to_max_posts, applied after
+    stream_unseen_for_any_channel), so max_posts is a backlog-draining
     floor: once a source's newest item has been sent, the next-oldest
     still-unsent item from that source surfaces instead of the source going
     silent for the rest of the cycle."""
@@ -227,7 +227,7 @@ def test_dedup_before_cap_still_surfaces_an_older_unsent_article_once_the_newest
                 for i in range(3)
             ]
 
-    sources = [SourceConfig(name="hacker-news", url="https://a", minimum_posts=1)]
+    sources = [SourceConfig(name="hacker-news", url="https://a", max_posts=1)]
     fetched = stream_enabled_sources(sources, ThreeArticlesFetcher())
     seen_store = FakeSeenStore()
     notifier = FakeNotifier("discord")
@@ -237,24 +237,24 @@ def test_dedup_before_cap_still_surfaces_an_older_unsent_article_once_the_newest
     seen_store.mark_seen(article_key(newest_article), "discord")
 
     unseen = stream_unseen_for_any_channel(fetched, seen_store, [notifier])
-    capped = stream_capped_to_minimum_posts(unseen, sources)
+    capped = stream_capped_to_max_posts(unseen, sources)
 
     assert [a.url for a in capped] == ["https://example.com/hacker-news-1"]
 
 
-def test_stream_capped_to_minimum_posts_caps_articles_per_source() -> None:
+def test_stream_capped_to_max_posts_caps_articles_per_source() -> None:
     articles = [
         make_article(f"https://example.com/{i}", source="hacker-news")
         for i in range(3)
     ]
-    sources = [SourceConfig(name="hacker-news", url="https://a", minimum_posts=2)]
+    sources = [SourceConfig(name="hacker-news", url="https://a", max_posts=2)]
 
-    result = list(stream_capped_to_minimum_posts(iter(articles), sources))
+    result = list(stream_capped_to_max_posts(iter(articles), sources))
 
     assert result == articles[:2]
 
 
-def test_stream_capped_to_minimum_posts_leaves_source_unbounded_when_no_minimum_configured() -> (
+def test_stream_capped_to_max_posts_leaves_source_unbounded_when_no_max_configured() -> (
     None
 ):
     articles = [
@@ -263,12 +263,12 @@ def test_stream_capped_to_minimum_posts_leaves_source_unbounded_when_no_minimum_
     ]
     sources = [SourceConfig(name="hacker-news", url="https://a")]
 
-    result = list(stream_capped_to_minimum_posts(iter(articles), sources))
+    result = list(stream_capped_to_max_posts(iter(articles), sources))
 
     assert result == articles
 
 
-def test_stream_capped_to_minimum_posts_applies_independently_per_source() -> None:
+def test_stream_capped_to_max_posts_applies_independently_per_source() -> None:
     articles = [
         make_article("https://example.com/a0", source="source-a"),
         make_article("https://example.com/a1", source="source-a"),
@@ -276,11 +276,11 @@ def test_stream_capped_to_minimum_posts_applies_independently_per_source() -> No
         make_article("https://example.com/b1", source="source-b"),
     ]
     sources = [
-        SourceConfig(name="source-a", url="https://a", minimum_posts=1),
-        SourceConfig(name="source-b", url="https://b", minimum_posts=2),
+        SourceConfig(name="source-a", url="https://a", max_posts=1),
+        SourceConfig(name="source-b", url="https://b", max_posts=2),
     ]
 
-    result = list(stream_capped_to_minimum_posts(iter(articles), sources))
+    result = list(stream_capped_to_max_posts(iter(articles), sources))
 
     assert result == [articles[0], articles[2], articles[3]]
 
