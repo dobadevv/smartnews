@@ -7,6 +7,7 @@ members = [
     "smartnews",
     "smartnews-common",
     "smartnews-fetcher",
+    "smartnews-notification",
     "smartnews-transformation",
 ]
 
@@ -1134,6 +1135,7 @@ dev = [
     { name = "ruff" },
     { name = "smartnews-common" },
     { name = "smartnews-fetcher" },
+    { name = "smartnews-notification" },
     { name = "smartnews-transformation" },
     { name = "testcontainers", extra = ["rabbitmq"] },
 ]
@@ -1165,6 +1167,7 @@ dev = [
     { name = "ruff", specifier = ">=0.16.8" },
     { name = "smartnews-common", editable = "libs/common" },
     { name = "smartnews-fetcher", editable = "services/fetcher" },
+    { name = "smartnews-notification", editable = "services/notification" },
     { name = "smartnews-transformation", editable = "services/transformation" },
     { name = "testcontainers", extras = ["postgres", "rabbitmq"], specifier = ">=4.15.0" },
 ]
@@ -1207,6 +1210,27 @@ dependencies = [
 requires-dist = [
     { name = "feedparser", specifier = ">=6.0.14" },
     { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "smartnews-common", editable = "libs/common" },
+]
+
+[[package]]
+name = "smartnews-notification"
+version = "0.1.0"
+source = { editable = "services/notification" }
+dependencies = [
+    { name = "discord-py" },
+    { name = "pydantic" },
+    { name = "python-telegram-bot" },
+    { name = "pyyaml" },
+    { name = "smartnews-common" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "discord-py", specifier = ">=2.7.1" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "python-telegram-bot", specifier = ">=22.8" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "smartnews-common", editable = "libs/common" },
 ]
