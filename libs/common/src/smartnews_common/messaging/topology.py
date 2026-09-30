@@ -30,6 +30,7 @@ def declare_stage(
 ) -> None:
     channel.exchange_declare(exchange=EXCHANGE, exchange_type="direct", durable=True)
     _declare_bound_queue(channel, queue, routing_key=routing_key)
+    _bind_retry_return_key(channel, queue, routing_key)
     for delay in retry_delays:
         _declare_bound_queue(
             channel,
@@ -51,6 +52,19 @@ def _declare_bound_queue(
 ) -> None:
     channel.queue_declare(queue=queue, durable=True, arguments=arguments)
     channel.queue_bind(queue=queue, exchange=EXCHANGE, routing_key=routing_key or queue)
+
+
+def _bind_retry_return_key(
+    channel: BlockingChannel, queue: str, routing_key: str | None
+) -> None:
+    """Expired retry messages are always dead-lettered back to `queue`'s own name.
+
+    A queue bound to a different `routing_key` (for fan-out) would otherwise
+    never receive that return traffic, since it isn't bound to its own name.
+    Give it a second, private binding on its own name so retries still land.
+    """
+    if routing_key is not None and routing_key != queue:
+        channel.queue_bind(queue=queue, exchange=EXCHANGE, routing_key=queue)
 
 
 def _delay_label(delay: timedelta) -> str:
