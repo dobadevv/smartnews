@@ -18,7 +18,9 @@ services:
   rabbitmq:
     image: rabbitmq:4-management-alpine
     ports:
-      - "15672:15672"
+      # Management UI: host-local only. The image's default guest/guest
+      # login must never be reachable from outside this machine.
+      - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
