@@ -10,19 +10,26 @@ filters/summarizes them, and forwards the relevant ones to a chat channel
 Pipeline, end to end:
 
 ```
-Fetcher -> [RabbitMQ] -> Transformation (LLM) -> [RabbitMQ] -> Notification (Discord/Telegram)
+                                  -> Transformation (LLM) -> [RabbitMQ] -> Notification (Discord/Telegram)
+Fetcher -> [RabbitMQ, fanned out]
+                                  -> Crawler (full content) -> [RabbitMQ] (no consumer yet)
 ```
 
 Each stage runs as its own service; the fetcher runs once daily at a configured
-time (`run_at`/`timezone`).
+time (`run_at`/`timezone`). The crawler runs independently of transformation and
+notification: `fetcher` publishes once, and RabbitMQ fans that single message out
+to both `articles.fetched` and `articles.crawl` (two queues bound to the same
+routing key), so a source the crawler cannot fetch never affects delivery.
 
 ## Architecture
 
-Three services in one uv workspace, talking over RabbitMQ and sharing one
+Four services in one uv workspace, talking over RabbitMQ and sharing one
 Postgres database:
 
 ```
-fetcher ──► [articles.fetched] ──► transformation ──► [articles.transformed] ──► notification
+                       ┌──► [articles.fetched] ──► transformation ──► [articles.transformed] ──► notification
+fetcher ──► (fan-out) ─┤
+                       └──► [articles.crawl] ──► crawler ──► [articles.crawled] (no consumer yet)
 ```
 
 - **fetcher-service** (`services/fetcher`) — long-running loop that runs
@@ -43,6 +50,14 @@ fetcher ──► [articles.fetched] ──► transformation ──► [article
   `articles.transformed`; for each enabled notifier, skips channels already
   recorded in `article_deliveries`, sends, then records the delivery. If
   any channel fails the message is retried; redeliveries never double-post.
+- **crawler-service** (`services/crawler`) — consumes `articles.crawl`
+  (fanned out from the same `ArticleFetched` message `fetcher` publishes to
+  `articles.fetched`), fetches the article's URL over HTTP, extracts its main
+  text with `trafilatura` (or a per-source CSS-selector override from
+  `config/crawler.yaml`), upserts `article_contents`, and publishes
+  `ArticleCrawled` to `articles.crawled`. A failed crawl goes through the
+  standard retry ladder and DLQ like every other consumer; nothing downstream
+  depends on it, so it never blocks or delays transformation/notification.
 - **smartnews_common** (`libs/common`) — `Article`/`Transformation` model,
   `article_key()` dedup hash, Pydantic message contracts, pika topology /
   publisher / consumer, SQLAlchemy engine, sqlc-generated queries and thin
@@ -67,11 +82,12 @@ One file per service under `config/`: `fetcher.yaml`
 (`run_at`/`timezone`, `sources[]` with `name`, `url`, `category`,
 `enabled`, `max_posts`, `lookback_days`), `transformation.yaml`
 (`filter.enabled`, `filter.provider`, `filter.model`),
-`notification.yaml` (`notifiers.<channel>.enabled`). Credentials come only
-from env: `DATABASE_URL`, `RABBITMQ_URL` for all services;
-`GEMINI_API_KEY`/`GROQ_API_KEY` for transformation;
+`notification.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
+(`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`).
+Credentials come only from env: `DATABASE_URL`, `RABBITMQ_URL` for all
+services; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformation;
 `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` for
-notification. See `services/*/.env.example`.
+notification. The crawler needs no API key. See `services/*/.env.example`.
 
 ## Commands
 

@@ -58,6 +58,20 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  crawler:
+    build:
+      context: .
+      args:
+        UV_SYNC_ARGS: --no-dev --package smartnews-crawler
+    command: ["smartnews-crawler"]
+    environment:
+      DATABASE_URL: *database-url
+      RABBITMQ_URL: *rabbitmq-url
+    volumes:
+      - ./config:/app/config:ro
+    depends_on: *service-dependencies
+    restart: unless-stopped
+
   transformation:
     build:
       context: .
