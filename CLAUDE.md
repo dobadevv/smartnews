@@ -13,7 +13,8 @@ Pipeline, end to end:
 Fetcher -> [RabbitMQ] -> Transformation (LLM) -> [RabbitMQ] -> Notification (Discord/Telegram)
 ```
 
-Each stage runs as its own service; the fetcher runs on a configured interval.
+Each stage runs as its own service; the fetcher runs once daily at a configured
+time (`run_at`/`timezone`).
 
 ## Architecture
 
@@ -24,7 +25,8 @@ Postgres database:
 fetcher ──► [articles.fetched] ──► transformation ──► [articles.transformed] ──► notification
 ```
 
-- **fetcher-service** (`services/fetcher`) — long-running interval loop.
+- **fetcher-service** (`services/fetcher`) — long-running loop that runs
+  once a day at a fixed local time.
   Each cycle streams articles through generators: fetch enabled sources →
   drop articles older than `lookback_days` → for each article, unless its
   source already hit `max_posts` new articles this cycle, insert it into
@@ -62,7 +64,7 @@ The attempt number travels in the `x-attempt` header.
 ## Config
 
 One file per service under `config/`: `fetcher.yaml`
-(`fetch_interval_minutes`, `sources[]` with `name`, `url`, `category`,
+(`run_at`/`timezone`, `sources[]` with `name`, `url`, `category`,
 `enabled`, `max_posts`, `lookback_days`), `transformation.yaml`
 (`filter.enabled`, `filter.provider`, `filter.model`),
 `notification.yaml` (`notifiers.<channel>.enabled`). Credentials come only

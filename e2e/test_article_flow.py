@@ -151,7 +151,6 @@ def test_one_feed_entry_is_translated_and_delivered_exactly_once(
     )
     cycle = CycleDeps(
         config=FetcherConfig(
-            fetch_interval_minutes=1,
             sources=[SourceConfig(name="example-blog", url="unused", max_posts=1)],
         ),
         fetcher=SingleArticleFetcher(),

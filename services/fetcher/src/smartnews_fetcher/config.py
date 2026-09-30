@@ -1,8 +1,9 @@
-from datetime import timedelta
+from datetime import time
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, field_validator
 
 
 class SourceConfig(BaseModel):
@@ -15,12 +16,18 @@ class SourceConfig(BaseModel):
 
 
 class FetcherConfig(BaseModel):
-    fetch_interval_minutes: int = Field(gt=0)
+    run_at: time = time(7, 0)
+    timezone: str = "Asia/Ho_Chi_Minh"
     sources: list[SourceConfig]
 
-    @property
-    def fetch_interval(self) -> timedelta:
-        return timedelta(minutes=self.fetch_interval_minutes)
+    @field_validator("timezone")
+    @classmethod
+    def _validate_timezone(cls, timezone: str) -> str:
+        try:
+            ZoneInfo(timezone)
+        except ZoneInfoNotFoundError as error:
+            raise ValueError(f"unknown timezone: {timezone}") from error
+        return timezone
 
 
 def load_fetcher_config(path: Path) -> FetcherConfig:

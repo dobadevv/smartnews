@@ -43,8 +43,8 @@ that item, never the rest of the run.
 fetcher ──► [articles.fetched] ──► transformation ──► [articles.transformed] ──► notification
 ```
 
-1. **fetcher** fetches every enabled feed on an interval, drops stale
-   articles, stores new ones in Postgres and publishes them.
+1. **fetcher** fetches every enabled feed once a day at a fixed local time,
+   drops stale articles, stores new ones in Postgres and publishes them.
 2. **transformation** translates each article's title and summary to
    Vietnamese with Gemini or Groq and stores the result.
 3. **notification** posts each article to Discord and/or Telegram and
@@ -62,7 +62,7 @@ dead-letter queue visible in the RabbitMQ UI (http://localhost:15672).
 
 ### Configuration
 
-- `config/fetcher.yaml` — `fetch_interval_minutes` and the source list.
+- `config/fetcher.yaml` — `run_at`/`timezone` and the source list.
 - `config/transformation.yaml` — LLM filter on/off, provider, model.
 - `config/notification.yaml` — which channels are enabled.
 - Secrets: copy `services/transformation/.env.example` and

@@ -1,5 +1,6 @@
-# How often the fetcher runs a cycle. 1440 = once a day.
-fetch_interval_minutes: 1440
+# Time of day the fetcher runs its one daily cycle, in the given timezone.
+run_at: "07:00"
+timezone: Asia/Ho_Chi_Minh
 
 sources:
   # ===== Architecture =====

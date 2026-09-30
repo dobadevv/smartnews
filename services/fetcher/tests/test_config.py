@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import time
 from pathlib import Path
 
 import pytest
@@ -12,11 +12,14 @@ def write_config(tmp_path: Path, content: str) -> Path:
     return path
 
 
-def test_load_fetcher_config_parses_interval_and_every_source_field(tmp_path: Path) -> None:
+def test_load_fetcher_config_parses_run_at_timezone_and_every_source_field(
+    tmp_path: Path,
+) -> None:
     path = write_config(
         tmp_path,
         """
-fetch_interval_minutes: 30
+run_at: "08:30"
+timezone: America/New_York
 sources:
   - name: hacker-news
     url: https://hnrss.org/frontpage
@@ -29,7 +32,7 @@ sources:
 
     config = load_fetcher_config(path)
 
-    assert config.fetch_interval == timedelta(minutes=30)
+    assert (config.run_at, config.timezone) == (time(8, 30), "America/New_York")
     assert config.sources == [
         SourceConfig(
             name="hacker-news",
@@ -45,20 +48,20 @@ sources:
 def test_source_config_defaults() -> None:
     source = SourceConfig(name="s", url="https://a")
 
-    assert (source.enabled, source.max_posts, source.lookback_days, source.category) == (
-        True, None, 7, None
-    )
+    assert (
+        source.enabled,
+        source.max_posts,
+        source.lookback_days,
+        source.category,
+    ) == (True, None, 7, None)
 
 
-@pytest.mark.parametrize(
-    "interval",
-    [pytest.param(0, id="zero"), pytest.param(-5, id="negative")],
-)
-def test_fetcher_config_rejects_a_non_positive_interval(interval: int) -> None:
+def test_fetcher_config_defaults_to_seven_am_asia_ho_chi_minh() -> None:
+    config = FetcherConfig(sources=[])
+
+    assert (config.run_at, config.timezone) == (time(7, 0), "Asia/Ho_Chi_Minh")
+
+
+def test_fetcher_config_rejects_an_unknown_timezone() -> None:
     with pytest.raises(ValidationError):
-        FetcherConfig(fetch_interval_minutes=interval, sources=[])
-
-
-def test_fetcher_config_requires_an_interval() -> None:
-    with pytest.raises(ValidationError):
-        FetcherConfig.model_validate({"sources": []})
+        FetcherConfig(timezone="Not/AZone", sources=[])

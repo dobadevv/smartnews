@@ -1,6 +1,7 @@
 import logging
 import threading
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from smartnews_common.db.engine import create_database_engine
 from smartnews_common.env import require_env
@@ -9,7 +10,7 @@ from smartnews_common.signals import call_on_shutdown_signals
 
 from smartnews_fetcher.config import load_fetcher_config
 from smartnews_fetcher.cycle import CycleDeps, run_cycle
-from smartnews_fetcher.loop import run_forever
+from smartnews_fetcher.loop import run_daily_at
 from smartnews_fetcher.rss import RssFetcher
 
 DEFAULT_CONFIG_PATH = Path("config/fetcher.yaml")
@@ -28,12 +29,14 @@ def main() -> None:
     )
     stop_requested = threading.Event()
     call_on_shutdown_signals(stop_requested.set)
+    zone = ZoneInfo(config.timezone)
     logger.info(
-        "fetcher started: %d enabled source(s), cycle every %s",
+        "fetcher started: %d enabled source(s), runs daily at %s %s",
         sum(1 for source in config.sources if source.enabled),
-        config.fetch_interval,
+        config.run_at,
+        config.timezone,
     )
-    run_forever(lambda: _run_logged_cycle(deps), config.fetch_interval, stop_requested)
+    run_daily_at(lambda: _run_logged_cycle(deps), config.run_at, zone, stop_requested)
     logger.info("fetcher stopped")
 
 
