@@ -21,6 +21,14 @@ class Article:
 
 
 @dataclasses.dataclass()
+class ArticleContent:
+    article_id: int
+    content: str
+    extractor: str
+    crawled_at: datetime.datetime
+
+
+@dataclasses.dataclass()
 class ArticleDelivery:
     article_id: int
     channel: str

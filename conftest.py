@@ -15,7 +15,7 @@ from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.rabbitmq import RabbitMqContainer
 
 REPO_ROOT = Path(__file__).resolve().parent
-APPLICATION_TABLES = "article_deliveries, article_transformations, articles"
+APPLICATION_TABLES = "article_contents, article_deliveries, article_transformations, articles"
 
 
 @pytest.fixture(scope="session")
