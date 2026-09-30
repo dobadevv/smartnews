@@ -5,6 +5,7 @@ description = "Shared domain model, messaging and database access for smartnews 
 requires-python = ">=3.14"
 dependencies = [
     "psycopg[binary]>=3.3.6",
+    "pydantic>=2.13.5",
     "sqlalchemy>=2.1.1",
 ]
 
