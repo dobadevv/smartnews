@@ -1,0 +1,21 @@
+[project]
+name = "smartnews-fetcher"
+version = "0.1.0"
+description = "Fetches RSS feeds and publishes new articles"
+requires-python = ">=3.14"
+dependencies = [
+    "feedparser>=6.0.14",
+    "pydantic>=2.13.5",
+    "pyyaml>=6.0.3",
+    "smartnews-common",
+]
+
+[project.scripts]
+smartnews-fetcher = "smartnews_fetcher.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+smartnews-common = { workspace = true }

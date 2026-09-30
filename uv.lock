@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 members = [
     "smartnews",
     "smartnews-common",
+    "smartnews-fetcher",
 ]
 
 [[package]]
@@ -1131,6 +1132,7 @@ dev = [
     { name = "responses" },
     { name = "ruff" },
     { name = "smartnews-common" },
+    { name = "smartnews-fetcher" },
     { name = "testcontainers", extra = ["rabbitmq"] },
 ]
 migrate = [
@@ -1160,6 +1162,7 @@ dev = [
     { name = "responses", specifier = ">=0.26.3" },
     { name = "ruff", specifier = ">=0.16.8" },
     { name = "smartnews-common", editable = "libs/common" },
+    { name = "smartnews-fetcher", editable = "services/fetcher" },
     { name = "testcontainers", extras = ["postgres", "rabbitmq"], specifier = ">=4.15.0" },
 ]
 migrate = [
@@ -1184,6 +1187,25 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "sqlalchemy", specifier = ">=2.1.1" },
+]
+
+[[package]]
+name = "smartnews-fetcher"
+version = "0.1.0"
+source = { editable = "services/fetcher" }
+dependencies = [
+    { name = "feedparser" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "smartnews-common" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "feedparser", specifier = ">=6.0.14" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "smartnews-common", editable = "libs/common" },
 ]
 
 [[package]]
