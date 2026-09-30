@@ -1,7 +1,6 @@
 import signal
 
 import pytest
-
 from smartnews_common.signals import call_on_shutdown_signals
 
 

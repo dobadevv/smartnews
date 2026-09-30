@@ -1,5 +1,4 @@
 import pytest
-
 from smartnews_common.env import require_env
 
 

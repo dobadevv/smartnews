@@ -40,11 +40,19 @@ addopts = "--import-mode=importlib"
 
 [dependency-groups]
 dev = [
+    "alembic>=1.20.0",
     "ipython>=9.17.1",
     "pytest>=9.1.1",
     "pytest-httpserver>=1.1.5",
     "responses>=0.26.3",
     "ruff>=0.16.8",
     "smartnews-common",
-    "testcontainers[postgres]>=4.15.0",
+    "testcontainers[postgres,rabbitmq]>=4.15.0",
 ]
+migrate = [
+    "alembic>=1.20.0",
+    "smartnews-common",
+]
+
+[tool.ruff]
+extend-exclude = ["libs/common/src/smartnews_common/db/generated"]

@@ -3,7 +3,10 @@ name = "smartnews-common"
 version = "0.1.0"
 description = "Shared domain model, messaging and database access for smartnews services"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "psycopg[binary]>=3.3.6",
+    "sqlalchemy>=2.1.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]
