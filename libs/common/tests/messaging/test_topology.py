@@ -52,3 +52,20 @@ def test_expired_retry_message_returns_to_the_main_queue(
 def test_declare_stage_is_idempotent(rabbitmq_channel: BlockingChannel, unique_queue: str) -> None:
     declare_stage(rabbitmq_channel, unique_queue, (ONE_SECOND,))
     declare_stage(rabbitmq_channel, unique_queue, (ONE_SECOND,))
+
+
+def test_declare_stage_can_bind_two_queues_to_the_same_routing_key(
+    rabbitmq_channel: BlockingChannel,
+    unique_queue: str,
+    wait_for_message: Callable,
+) -> None:
+    routing_key = f"{unique_queue}.shared"
+    other_queue = f"{unique_queue}.other"
+    declare_stage(rabbitmq_channel, unique_queue, (), routing_key=routing_key)
+    declare_stage(rabbitmq_channel, other_queue, (), routing_key=routing_key)
+
+    Publisher(rabbitmq_channel).publish_body(routing_key, b"fan out", attempt=1)
+
+    _, _, first = wait_for_message(unique_queue)
+    _, _, second = wait_for_message(other_queue)
+    assert (first, second) == (b"fan out", b"fan out")

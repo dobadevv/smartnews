@@ -21,10 +21,13 @@ def dead_letter_queue_name(queue: str) -> str:
 
 
 def declare_stage(
-    channel: BlockingChannel, queue: str, retry_delays: tuple[timedelta, ...]
+    channel: BlockingChannel,
+    queue: str,
+    retry_delays: tuple[timedelta, ...],
+    routing_key: str | None = None,
 ) -> None:
     channel.exchange_declare(exchange=EXCHANGE, exchange_type="direct", durable=True)
-    _declare_bound_queue(channel, queue)
+    _declare_bound_queue(channel, queue, routing_key=routing_key)
     for delay in retry_delays:
         _declare_bound_queue(
             channel,
@@ -39,10 +42,13 @@ def declare_stage(
 
 
 def _declare_bound_queue(
-    channel: BlockingChannel, queue: str, arguments: dict | None = None
+    channel: BlockingChannel,
+    queue: str,
+    routing_key: str | None = None,
+    arguments: dict | None = None,
 ) -> None:
     channel.queue_declare(queue=queue, durable=True, arguments=arguments)
-    channel.queue_bind(queue=queue, exchange=EXCHANGE, routing_key=queue)
+    channel.queue_bind(queue=queue, exchange=EXCHANGE, routing_key=routing_key or queue)
 
 
 def _delay_label(delay: timedelta) -> str:

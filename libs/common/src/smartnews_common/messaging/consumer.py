@@ -45,6 +45,7 @@ class ConsumerDeps[M: BaseModel]:
     handler: MessageHandler[M]
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     output_queues: tuple[str, ...] = ()
+    input_routing_key: str | None = None
 
 
 class Consumer[M: BaseModel]:
@@ -74,7 +75,10 @@ class Consumer[M: BaseModel]:
 
     def declare_topology(self, channel: BlockingChannel) -> None:
         delays = self._deps.retry_policy.delays
-        for queue in (self._deps.queue, *self._deps.output_queues):
+        declare_stage(
+            channel, self._deps.queue, delays, routing_key=self._deps.input_routing_key
+        )
+        for queue in self._deps.output_queues:
             declare_stage(channel, queue, delays)
 
     def handle_delivery(

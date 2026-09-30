@@ -186,3 +186,21 @@ def test_handle_delivery_retries_any_handler_exception(
     deliver(consumer, rabbitmq_channel, unique_queue, Ping(value="a").model_dump_json().encode())
 
     wait_for_message(retry_queue_name(unique_queue, ONE_MINUTE))
+
+
+def test_declare_topology_binds_the_input_queue_to_a_custom_routing_key(
+    rabbitmq_url: str,
+    rabbitmq_channel: BlockingChannel,
+    unique_queue: str,
+    wait_for_message: Callable,
+) -> None:
+    routing_key = f"{unique_queue}.shared"
+    consumer = make_consumer(
+        rabbitmq_url, unique_queue, RecordingHandler(), input_routing_key=routing_key
+    )
+    consumer.declare_topology(rabbitmq_channel)
+
+    Publisher(rabbitmq_channel).publish_body(routing_key, b"fan out", attempt=1)
+
+    _, _, body = wait_for_message(unique_queue)
+    assert body == b"fan out"
