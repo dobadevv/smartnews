@@ -5,6 +5,8 @@ from pika.adapters.blocking_connection import BlockingChannel
 EXCHANGE = "smartnews"
 ARTICLES_FETCHED = "articles.fetched"
 ARTICLES_TRANSFORMED = "articles.transformed"
+ARTICLES_TO_CRAWL = "articles.crawl"
+ARTICLES_CRAWLED = "articles.crawled"
 DEFAULT_RETRY_DELAYS = (
     timedelta(minutes=1),
     timedelta(minutes=5),

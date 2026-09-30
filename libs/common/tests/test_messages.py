@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 from smartnews_common.dedup import article_key
-from smartnews_common.messages import ArticleFetched, ArticleTransformed
+from smartnews_common.messages import ArticleCrawled, ArticleFetched, ArticleTransformed
 from smartnews_common.models import Article, Transformation
 
 ICT = timezone(timedelta(hours=7))
@@ -73,3 +73,22 @@ def test_messages_reject_an_unknown_schema_version() -> None:
 
     with pytest.raises(ValidationError):
         ArticleFetched.model_validate(payload)
+
+
+def test_from_fetched_carries_content_and_every_base_field() -> None:
+    fetched = ArticleFetched.from_article(make_article(), article_id=7)
+
+    message = ArticleCrawled.from_fetched(fetched, "Full article text")
+
+    assert message.content == "Full article text"
+    assert message.to_article() == fetched.to_article()
+    assert (message.article_id, message.url, message.hash_url) == (7, fetched.url, fetched.hash_url)
+
+
+def test_article_crawled_survives_a_json_round_trip() -> None:
+    fetched = ArticleFetched.from_article(make_article(), article_id=1)
+    message = ArticleCrawled.from_fetched(fetched, "Full text")
+
+    decoded = ArticleCrawled.model_validate_json(message.model_dump_json())
+
+    assert decoded == message

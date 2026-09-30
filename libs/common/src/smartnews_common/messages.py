@@ -63,3 +63,11 @@ class ArticleTransformed(ArticleMessage):
     @classmethod
     def untranslated(cls, fetched: ArticleFetched) -> Self:
         return cls(**fetched.model_dump(), language=None)
+
+
+class ArticleCrawled(ArticleMessage):
+    content: str
+
+    @classmethod
+    def from_fetched(cls, fetched: ArticleFetched, content: str) -> Self:
+        return cls(**fetched.model_dump(), content=content)
