@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
+[manifest]
+members = [
+    "smartnews",
+    "smartnews-common",
+]
+
 [[package]]
 name = "aiohappyeyeballs"
 version = "2.7.1"
@@ -1088,6 +1094,7 @@ dev = [
     { name = "pytest-httpserver" },
     { name = "responses" },
     { name = "ruff" },
+    { name = "smartnews-common" },
     { name = "testcontainers" },
 ]
 
@@ -1111,8 +1118,14 @@ dev = [
     { name = "pytest-httpserver", specifier = ">=1.1.5" },
     { name = "responses", specifier = ">=0.26.3" },
     { name = "ruff", specifier = ">=0.16.8" },
+    { name = "smartnews-common", editable = "libs/common" },
     { name = "testcontainers", extras = ["postgres"], specifier = ">=4.15.0" },
 ]
+
+[[package]]
+name = "smartnews-common"
+version = "0.1.0"
+source = { editable = "libs/common" }
 
 [[package]]
 name = "sniffio"

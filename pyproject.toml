@@ -28,8 +28,15 @@ smartnews-cronjob-remove = "smartnews.cronjob:remove"
 requires = ["uv_build>=0.12.17,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.workspace]
+members = ["libs/common"]
+
+[tool.uv.sources]
+smartnews-common = { workspace = true }
+
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "libs"]
+addopts = "--import-mode=importlib"
 
 [dependency-groups]
 dev = [
@@ -38,5 +45,6 @@ dev = [
     "pytest-httpserver>=1.1.5",
     "responses>=0.26.3",
     "ruff>=0.16.8",
+    "smartnews-common",
     "testcontainers[postgres]>=4.15.0",
 ]

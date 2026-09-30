@@ -1,0 +1,10 @@
+[project]
+name = "smartnews-common"
+version = "0.1.0"
+description = "Shared domain model, messaging and database access for smartnews services"
+requires-python = ">=3.14"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
