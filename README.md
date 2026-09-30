@@ -40,158 +40,43 @@ that item, never the rest of the run.
 ## How it works
 
 ```
-Fetcher(s) -> Aggregator -> Deduper (Postgres) -> Filter (LLM) -> Notifier(s) (Discord/Telegram)
+fetcher ──► [articles.fetched] ──► transformation ──► [articles.transformed] ──► notification
 ```
 
-Each run streams articles through this pipeline one at a time (an article
-can be translated and sent before the next source is even fetched), rather
-than loading everything into memory as one big batch:
+1. **fetcher** fetches every enabled feed on an interval, drops stale
+   articles, stores new ones in Postgres and publishes them.
+2. **transformation** translates each article's title and summary to
+   Vietnamese with Gemini or Groq and stores the result.
+3. **notification** posts each article to Discord and/or Telegram and
+   records which channels received it, so nothing is posted twice.
 
-1. **Fetch enabled sources** — every source in `config/sources.yaml` with
-   `enabled: true` is fetched and parsed into articles. If a source fails
-   to fetch, it's logged and skipped for this run; every other source is
-   unaffected, and the failing one is retried on the next run.
-2. **Drop stale articles** — articles older than the source's
-   `lookback_days` (default 7) are dropped before any database lookup or
-   LLM call, since there's no point spending either on something that's
-   already stale.
-3. **Dedup + cap** — for each remaining article, it's kept only if it's
-   still unseen on at least one enabled channel *and* its source hasn't
-   yet hit its configured `max_posts` for this run. This keeps a single
-   noisy source from drowning out the others while still draining its
-   backlog over successive runs.
-4. **Filter/translate** — each surviving article is passed once through
-   the configured LLM filter (or left as-is if the filter is disabled). A
-   failed LLM call is logged and the article is kept with its original
-   title/summary instead of being dropped.
-5. **Notify** — for every enabled channel, the article is dedup-checked
-   again (this time against that specific channel), sent, and only marked
-   as seen on that channel once the send succeeds. If sending fails, the
-   article stays eligible for a retry on the next run instead of being
-   silently lost.
-
-If no notifier is enabled, the pipeline still runs end-to-end and prints
-surviving articles to stdout, so you can try it out without setting up
-Discord/Telegram or Postgres first.
-
-Each run processes one batch and exits — there is no built-in scheduler,
-so recurring execution (e.g. every 30 minutes) is handled by an external
-scheduler such as `cron`, a systemd timer, or a container orchestrator's
-job scheduling.
+Failed steps are retried after 1, 5 and 15 minutes, then parked in a
+dead-letter queue visible in the RabbitMQ UI (http://localhost:15672).
 
 ## Usage
 
 ### Requirements
 
-- Python 3.14+
-- [uv](https://docs.astral.sh/uv/) for dependency management
-- A Postgres database (only required if at least one notifier is enabled)
-
-### Installation
-
-```bash
-uv sync
-```
+- Docker with Compose
+- For development: [uv](https://docs.astral.sh/uv/) and [sqlc](https://sqlc.dev/)
 
 ### Configuration
 
-`config/sources.yaml` lists the RSS sources to fetch, and controls which
-notifiers and which LLM filter are active:
-
-```yaml
-sources:
-  - name: example-blog
-    url: https://example.com/feed.xml
-    enabled: true
-    max_posts: 1        # optional; cap on new sends per source per run
-    lookback_days: 7     # optional; default 7
-
-notifiers:
-  discord:
-    enabled: false
-  telegram:
-    enabled: false
-
-filter:
-  enabled: false
-  provider: gemini            # "gemini" (default) or "groq"
-  model: gemini-3.8-flash     # optional; defaults to the provider's own default
-```
-
-Only sources with `enabled: true` are fetched.
-
-Credentials are never stored in this file — they're read from environment
-variables at startup, only for whichever channels/providers are enabled.
-Copy `.env.example` to `.env` and fill in what you need:
-
-```bash
-cp .env.example .env
-```
-
-| Variable              | Required when                                      |
-|-----------------------|-----------------------------------------------------|
-| `DATABASE_URL`        | At least one notifier is enabled                     |
-| `DISCORD_WEBHOOK_URL` | `notifiers.discord.enabled: true`                    |
-| `TELEGRAM_BOT_TOKEN`  | `notifiers.telegram.enabled: true`                   |
-| `TELEGRAM_CHAT_ID`    | `notifiers.telegram.enabled: true`                   |
-| `GEMINI_API_KEY`      | `filter.enabled: true` and `filter.provider: gemini` |
-| `GROQ_API_KEY`        | `filter.enabled: true` and `filter.provider: groq`   |
-
-Free-tier keys: [Gemini](https://aistudio.google.com/apikey),
-[Groq](https://console.groq.com/keys). Groq's free tier has noticeably
-higher rate limits than Gemini's, which can help if a large fetch batch
-exhausts Gemini's free-tier quota.
+- `config/fetcher.yaml` — `fetch_interval_minutes` and the source list.
+- `config/transformation.yaml` — LLM filter on/off, provider, model.
+- `config/notification.yaml` — which channels are enabled.
+- Secrets: copy `services/transformation/.env.example` and
+  `services/notification/.env.example` to `.env` next to them and fill in
+  the keys for what you enabled.
 
 ### Running
 
 ```bash
-uv run smartnews
+docker compose up -d --build
+docker compose logs -f fetcher transformation notification
 ```
 
-This runs one full pipeline pass (fetch → dedup → filter → notify) and
-exits. To run it continuously, schedule this command with `cron`, a
-systemd timer, or your platform's job scheduler at whatever interval you
-want (e.g. every 30 minutes).
-
-### Scheduling (cron)
-
-`smartnews` itself still runs once and exits (see above) — recurring
-execution is driven by the OS crontab. Rather than editing `crontab -e` by
-hand, `smartnews-cronjob` installs/updates a single crontab entry for you,
-based on `config/sources.yaml`:
-
-```yaml
-cronjob:
-  enabled: true               # optional; defaults to true
-  time: "07:00"                # optional; defaults to "07:00", 24h HH:MM
-  timezone: Asia/Ho_Chi_Minh   # optional; defaults to Asia/Ho_Chi_Minh
-```
-
-```bash
-uv run smartnews-cronjob
-```
-
-Re-run this command any time you change `time`/`timezone` — it updates the
-existing entry in place rather than creating a second one. Setting
-`cronjob.enabled: false` and re-running removes the entry entirely.
-
-Since not every cron daemon understands per-job timezones, the configured
-local time is converted to UTC once, at the moment you run
-`smartnews-cronjob`, and that fixed UTC hour/minute is what actually gets
-written to the crontab. `Asia/Ho_Chi_Minh` has no daylight saving time, so
-this conversion never needs to be redone unless you change the schedule
-yourself.
-
-The installed entry redirects `smartnews`'s output to `logs/cron.log`
-(created automatically) instead of relying on cron's mail delivery, which
-usually isn't configured on a dev machine.
-
-Cron runs commands without your shell's environment, so a `.env` file
-alone is not enough for the scheduled run — make sure `DATABASE_URL` and
-any enabled notifier/filter credentials are actually exported wherever
-`smartnews-cronjob` installs the job (e.g. loaded by your shell profile
-for a user crontab, or set at the system level), the same as any other
-environment variable a cron job depends on.
+Migrations run automatically before the services start.
 
 ### Development
 

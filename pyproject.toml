@@ -1,32 +1,16 @@
 [project]
 name = "smartnews"
 version = "0.1.0"
-description = "Add your description here"
+description = "RSS aggregation pipeline split into fetcher, transformation and notification services"
 readme = "README.md"
 authors = [
     { name = "dobadev", email = "doba.fullstack@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = [
-    "discord-py>=2.7.1",
-    "feedparser>=6.0.14",
-    "groq>=1.7.0",
-    "psycopg[binary]>=3.3.6",
-    "pydantic>=2.13.5",
-    "python-crontab>=3.4.0",
-    "python-telegram-bot>=22.8",
-    "pyyaml>=6.0.3",
-    "requests>=2.34.2",
-]
+dependencies = []
 
-[project.scripts]
-smartnews = "smartnews:main"
-smartnews-cronjob = "smartnews.cronjob:main"
-smartnews-cronjob-remove = "smartnews.cronjob:remove"
-
-[build-system]
-requires = ["uv_build>=0.12.17,<0.13.0"]
-build-backend = "uv_build"
+[tool.uv]
+package = false
 
 [tool.uv.workspace]
 members = ["libs/common", "services/fetcher", "services/transformation", "services/notification"]
@@ -38,7 +22,7 @@ smartnews-transformation = { workspace = true }
 smartnews-notification = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "libs", "services", "e2e"]
+testpaths = ["libs", "services", "e2e"]
 addopts = "--import-mode=importlib"
 
 [dependency-groups]
