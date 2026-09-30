@@ -1,0 +1,7 @@
+timeout_seconds: 15
+user_agent: "Mozilla/5.0 (compatible; SmartNewsBot/1.0; +https://github.com/dobadev/smartnews)"
+
+# Per-source CSS selector for when trafilatura's generic extraction performs
+# poorly for a specific source. Source slugs match `sources[].name` in
+# fetcher.yaml. Most sources need no entry here.
+overrides: {}
