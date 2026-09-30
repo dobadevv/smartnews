@@ -7,6 +7,7 @@ members = [
     "smartnews",
     "smartnews-common",
     "smartnews-fetcher",
+    "smartnews-transformation",
 ]
 
 [[package]]
@@ -1133,6 +1134,7 @@ dev = [
     { name = "ruff" },
     { name = "smartnews-common" },
     { name = "smartnews-fetcher" },
+    { name = "smartnews-transformation" },
     { name = "testcontainers", extra = ["rabbitmq"] },
 ]
 migrate = [
@@ -1163,6 +1165,7 @@ dev = [
     { name = "ruff", specifier = ">=0.16.8" },
     { name = "smartnews-common", editable = "libs/common" },
     { name = "smartnews-fetcher", editable = "services/fetcher" },
+    { name = "smartnews-transformation", editable = "services/transformation" },
     { name = "testcontainers", extras = ["postgres", "rabbitmq"], specifier = ">=4.15.0" },
 ]
 migrate = [
@@ -1205,6 +1208,27 @@ requires-dist = [
     { name = "feedparser", specifier = ">=6.0.14" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "smartnews-common", editable = "libs/common" },
+]
+
+[[package]]
+name = "smartnews-transformation"
+version = "0.1.0"
+source = { editable = "services/transformation" }
+dependencies = [
+    { name = "groq" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "smartnews-common" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "groq", specifier = ">=1.7.0" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "requests", specifier = ">=2.34.2" },
     { name = "smartnews-common", editable = "libs/common" },
 ]
 

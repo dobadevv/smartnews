@@ -1,0 +1,5 @@
+filter:
+  enabled: true
+  provider: groq
+  model: openai/gpt-oss-120b
+

@@ -29,11 +29,12 @@ requires = ["uv_build>=0.12.17,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.workspace]
-members = ["libs/common", "services/fetcher"]
+members = ["libs/common", "services/fetcher", "services/transformation"]
 
 [tool.uv.sources]
 smartnews-common = { workspace = true }
 smartnews-fetcher = { workspace = true }
+smartnews-transformation = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "libs", "services"]
@@ -49,6 +50,7 @@ dev = [
     "ruff>=0.16.8",
     "smartnews-common",
     "smartnews-fetcher",
+    "smartnews-transformation",
     "testcontainers[postgres,rabbitmq]>=4.15.0",
 ]
 migrate = [
