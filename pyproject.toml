@@ -38,7 +38,7 @@ smartnews-transformation = { workspace = true }
 smartnews-notification = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "libs", "services"]
+testpaths = ["tests", "libs", "services", "e2e"]
 addopts = "--import-mode=importlib"
 
 [dependency-groups]
