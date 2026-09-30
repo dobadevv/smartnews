@@ -1172,6 +1172,7 @@ name = "smartnews-common"
 version = "0.1.0"
 source = { editable = "libs/common" }
 dependencies = [
+    { name = "pika" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "sqlalchemy" },
@@ -1179,6 +1180,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pika", specifier = ">=1.4.4" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "sqlalchemy", specifier = ">=2.1.1" },

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Shared domain model, messaging and database access for smartnews services"
 requires-python = ">=3.14"
 dependencies = [
+    "pika>=1.4.4",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
     "sqlalchemy>=2.1.1",
