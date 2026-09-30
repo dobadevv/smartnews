@@ -13,10 +13,10 @@ class HttpPageFetcher:
         self._timeout_seconds = timeout_seconds
         self._headers = {"User-Agent": user_agent}
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str) -> bytes:
         try:
             response = requests.get(url, headers=self._headers, timeout=self._timeout_seconds)
             response.raise_for_status()
         except requests.RequestException as error:
             raise FetchError(f"failed to fetch {url}") from error
-        return response.text
+        return response.content

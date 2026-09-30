@@ -94,3 +94,28 @@ def test_expired_retry_message_returns_only_to_its_own_queue_not_a_fan_out_sibli
     assert body == b"retry me"
     assert properties.headers["x-attempt"] == 2
     assert message_count(sibling_queue) == 0
+
+
+def test_expired_retry_message_does_not_leak_to_a_queue_bound_to_its_name(
+    rabbitmq_channel: BlockingChannel,
+    unique_queue: str,
+    wait_for_message: Callable,
+    message_count: Callable[[str], int],
+) -> None:
+    """The reverse leak direction: a queue's own retry-return must not reach
+    a sibling queue that was fanned out to bind on THIS queue's own name
+    (e.g. transformation's articles.fetched retry must not leak to the
+    crawler's articles.crawl, which binds to "articles.fetched" for fan-out).
+    """
+    fanned_out_queue = f"{unique_queue}.fanned"
+    declare_stage(rabbitmq_channel, unique_queue, (ONE_SECOND,))
+    declare_stage(rabbitmq_channel, fanned_out_queue, (), routing_key=unique_queue)
+
+    Publisher(rabbitmq_channel).publish_body(
+        retry_queue_name(unique_queue, ONE_SECOND), b"retry me", attempt=2
+    )
+
+    _, properties, body = wait_for_message(unique_queue, timeout=10)
+    assert body == b"retry me"
+    assert properties.headers["x-attempt"] == 2
+    assert message_count(fanned_out_queue) == 0

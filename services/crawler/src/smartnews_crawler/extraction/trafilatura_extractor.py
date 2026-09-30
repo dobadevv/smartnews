@@ -4,7 +4,7 @@ from smartnews_crawler.extraction.base import ExtractionError
 
 
 class TrafilaturaExtractor:
-    def extract(self, html: str, url: str) -> str:
+    def extract(self, html: bytes, url: str) -> str:
         # fast + favor_precision: trafilatura's default fallback extraction
         # returns the entire body text (nav, footer, ...) rather than None
         # when it can't isolate a content block, so ExtractionError would

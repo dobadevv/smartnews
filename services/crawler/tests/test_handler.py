@@ -12,11 +12,11 @@ from smartnews_crawler.handler import CrawlerHandler, CrawlerHandlerDeps
 
 
 class FakeFetcher:
-    def __init__(self, html: str | None = None, error: Exception | None = None) -> None:
+    def __init__(self, html: bytes | None = None, error: Exception | None = None) -> None:
         self._html = html
         self._error = error
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str) -> bytes:
         if self._error is not None:
             raise self._error
         assert self._html is not None
@@ -55,7 +55,7 @@ def test_handler_records_and_publishes_the_extracted_content() -> None:
         CrawlerConfig(overrides={"example-blog": ContentSelectorOverride(content_selector="p")})
     )
     recorder, publisher = RecordingRecorder(), RecordingPublisher()
-    handler = make_handler(registry, FakeFetcher(html="<html><p>Body text</p></html>"), recorder)
+    handler = make_handler(registry, FakeFetcher(html=b"<html><p>Body text</p></html>"), recorder)
 
     handler(make_fetched(), DeliveryContext(attempt=1, is_final_attempt=False, publisher=publisher))
 
@@ -81,7 +81,7 @@ def test_handler_propagates_an_extraction_error_without_recording_or_publishing(
         CrawlerConfig(overrides={"example-blog": ContentSelectorOverride(content_selector="div.missing")})
     )
     recorder, publisher = RecordingRecorder(), RecordingPublisher()
-    handler = make_handler(registry, FakeFetcher(html="<html><p>no match</p></html>"), recorder)
+    handler = make_handler(registry, FakeFetcher(html=b"<html><p>no match</p></html>"), recorder)
 
     with pytest.raises(ExtractionError):
         handler(make_fetched(), DeliveryContext(attempt=1, is_final_attempt=False, publisher=publisher))

@@ -7,7 +7,7 @@ class SelectorExtractor:
     def __init__(self, css_selector: str) -> None:
         self._css_selector = css_selector
 
-    def extract(self, html: str, url: str) -> str:
+    def extract(self, html: bytes, url: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
         element = soup.select_one(self._css_selector)
         if element is None:

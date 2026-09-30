@@ -58,6 +58,9 @@ fetcher ──► (fan-out) ─┤
   `ArticleCrawled` to `articles.crawled`. A failed crawl goes through the
   standard retry ladder and DLQ like every other consumer; nothing downstream
   depends on it, so it never blocks or delays transformation/notification.
+  `articles.crawled` has no consumer yet, so it grows unbounded until one
+  exists or an operator sets a RabbitMQ retention policy (`x-max-length` /
+  `x-message-ttl`) on it externally.
 - **smartnews_common** (`libs/common`) — `Article`/`Transformation` model,
   `article_key()` dedup hash, Pydantic message contracts, pika topology /
   publisher / consumer, SQLAlchemy engine, sqlc-generated queries and thin

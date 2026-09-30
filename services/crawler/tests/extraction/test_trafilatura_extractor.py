@@ -28,7 +28,7 @@ EMPTY_HTML = "<html><body><nav>Home | Sports | World</nav></body></html>"
 
 def test_extract_returns_the_articles_main_text() -> None:
     content = TrafilaturaExtractor().extract(
-        ARTICLE_HTML, "https://example.com/article"
+        ARTICLE_HTML.encode("utf-8"), "https://example.com/article"
     )
 
     assert "championship" in content.lower()
@@ -37,4 +37,4 @@ def test_extract_returns_the_articles_main_text() -> None:
 
 def test_extract_raises_when_the_page_has_no_extractable_content() -> None:
     with pytest.raises(ExtractionError, match="example.com"):
-        TrafilaturaExtractor().extract(EMPTY_HTML, "https://example.com/empty")
+        TrafilaturaExtractor().extract(EMPTY_HTML.encode("utf-8"), "https://example.com/empty")

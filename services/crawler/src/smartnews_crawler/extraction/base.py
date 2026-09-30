@@ -6,7 +6,7 @@ class ExtractionError(Exception):
 
 
 class Extractor(Protocol):
-    def extract(self, html: str, url: str) -> str:
+    def extract(self, html: bytes, url: str) -> str:
         """Return the article's main text content.
 
         Raises ExtractionError when no usable content can be extracted.

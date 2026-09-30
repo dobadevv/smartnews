@@ -12,7 +12,27 @@ def test_fetch_returns_the_response_body(httpserver: HTTPServer) -> None:
 
     html = HttpPageFetcher().fetch(httpserver.url_for("/article"))
 
-    assert "Hello" in html
+    assert b"Hello" in html
+
+
+def test_fetch_returns_raw_bytes_preserving_a_charset_the_headers_do_not_declare(
+    httpserver: HTTPServer,
+) -> None:
+    """requests defaults text/* with no charset parameter to ISO-8859-1, which
+    would corrupt non-ASCII text decoded at this layer. The fetcher must hand
+    back untouched bytes so extraction can sniff the page's own <meta
+    charset> declaration instead.
+    """
+    original_text = "Tiếng Việt"
+    body = f"<html><head><meta charset=\"utf-8\"></head><body>{original_text}</body></html>"
+    httpserver.expect_request("/article").respond_with_data(
+        body.encode("utf-8"), content_type="text/html"
+    )
+
+    html = HttpPageFetcher().fetch(httpserver.url_for("/article"))
+
+    assert original_text.encode("utf-8") in html
+    assert original_text in html.decode("utf-8")
 
 
 def test_fetch_sends_a_browser_like_user_agent(httpserver: HTTPServer) -> None:
