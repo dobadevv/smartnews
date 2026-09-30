@@ -13,13 +13,14 @@ dependencies = []
 package = false
 
 [tool.uv.workspace]
-members = ["libs/common", "services/fetcher", "services/transformation", "services/notification"]
+members = ["libs/common", "services/fetcher", "services/transformation", "services/notification", "services/crawler"]
 
 [tool.uv.sources]
 smartnews-common = { workspace = true }
 smartnews-fetcher = { workspace = true }
 smartnews-transformation = { workspace = true }
 smartnews-notification = { workspace = true }
+smartnews-crawler = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["libs", "services", "e2e"]
@@ -34,6 +35,7 @@ dev = [
     "responses>=0.26.3",
     "ruff>=0.16.8",
     "smartnews-common",
+    "smartnews-crawler",
     "smartnews-fetcher",
     "smartnews-notification",
     "smartnews-transformation",

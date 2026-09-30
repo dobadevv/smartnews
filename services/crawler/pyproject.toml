@@ -1,0 +1,23 @@
+[project]
+name = "smartnews-crawler"
+version = "0.1.0"
+description = "Crawls full article content from each article's URL"
+requires-python = ">=3.14"
+dependencies = [
+    "beautifulsoup4>=4.13.0",
+    "pydantic>=2.13.5",
+    "pyyaml>=6.0.3",
+    "requests>=2.34.2",
+    "smartnews-common",
+    "trafilatura>=2.0.0",
+]
+
+[project.scripts]
+smartnews-crawler = "smartnews_crawler.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+smartnews-common = { workspace = true }
