@@ -15,3 +15,8 @@ class TransformationStore:
             summary=transformation.summary,
             language=transformation.language,
         )
+
+    def upsert_content(self, article_id: int, content: str) -> None:
+        self._querier.upsert_article_transformation_content(
+            article_id=article_id, content=content
+        )

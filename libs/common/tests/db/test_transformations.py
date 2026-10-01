@@ -58,3 +58,64 @@ def test_upsert_rejects_a_language_other_than_vietnamese(engine: Engine, article
 
     with pytest.raises(IntegrityError), engine.begin() as connection:
         TransformationStore(connection).upsert(article_id, unsupported)
+
+
+def read_content_row(engine: Engine, article_id: int) -> dict:
+    with engine.connect() as connection:
+        return dict(
+            connection.execute(
+                text(
+                    "SELECT title, summary, language, content "
+                    "FROM article_transformations WHERE article_id = :id"
+                ),
+                {"id": article_id},
+            ).mappings().one()
+        )
+
+
+def test_upsert_content_creates_a_row_without_title_when_none_exists(
+    engine: Engine, article_id: int
+) -> None:
+    with engine.begin() as connection:
+        TransformationStore(connection).upsert_content(article_id, "Nội dung")
+
+    assert read_content_row(engine, article_id) == {
+        "title": None, "summary": None, "language": "vi", "content": "Nội dung"
+    }
+
+
+def test_upsert_content_keeps_the_title_and_summary_already_recorded(
+    engine: Engine, article_id: int
+) -> None:
+    with engine.begin() as connection:
+        TransformationStore(connection).upsert(
+            article_id, Transformation(title="Tiêu đề", summary="Tóm tắt", language="vi")
+        )
+    with engine.begin() as connection:
+        TransformationStore(connection).upsert_content(article_id, "Nội dung")
+
+    assert read_content_row(engine, article_id) == {
+        "title": "Tiêu đề", "summary": "Tóm tắt", "language": "vi", "content": "Nội dung"
+    }
+
+
+def test_upsert_keeps_the_content_already_recorded(engine: Engine, article_id: int) -> None:
+    with engine.begin() as connection:
+        TransformationStore(connection).upsert_content(article_id, "Nội dung")
+    with engine.begin() as connection:
+        TransformationStore(connection).upsert(
+            article_id, Transformation(title="Tiêu đề", summary="Tóm tắt", language="vi")
+        )
+
+    assert read_content_row(engine, article_id) == {
+        "title": "Tiêu đề", "summary": "Tóm tắt", "language": "vi", "content": "Nội dung"
+    }
+
+
+def test_upsert_content_overwrites_an_existing_content(engine: Engine, article_id: int) -> None:
+    with engine.begin() as connection:
+        TransformationStore(connection).upsert_content(article_id, "Cũ")
+    with engine.begin() as connection:
+        TransformationStore(connection).upsert_content(article_id, "Mới")
+
+    assert read_content_row(engine, article_id)["content"] == "Mới"

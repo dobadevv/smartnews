@@ -5,3 +5,10 @@ ON CONFLICT (article_id) DO UPDATE
 SET title = EXCLUDED.title,
     summary = EXCLUDED.summary,
     language = EXCLUDED.language;
+
+
+-- name: UpsertArticleTransformationContent :exec
+INSERT INTO article_transformations (article_id, language, content)
+VALUES (sqlc.arg(article_id), 'vi', sqlc.arg(content))
+ON CONFLICT (article_id) DO UPDATE
+SET content = EXCLUDED.content;

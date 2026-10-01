@@ -19,14 +19,25 @@ SET title = EXCLUDED.title,
 """
 
 
+UPSERT_ARTICLE_TRANSFORMATION_CONTENT = """-- name: upsert_article_transformation_content \\:exec
+INSERT INTO article_transformations (article_id, language, content)
+VALUES (:p1, 'vi', :p2)
+ON CONFLICT (article_id) DO UPDATE
+SET content = EXCLUDED.content
+"""
+
+
 class Querier:
     def __init__(self, conn: sqlalchemy.engine.Connection):
         self._conn = conn
 
-    def upsert_article_transformation(self, *, article_id: int, title: str, summary: Optional[str], language: str) -> None:
+    def upsert_article_transformation(self, *, article_id: int, title: Optional[str], summary: Optional[str], language: str) -> None:
         self._conn.execute(sqlalchemy.text(UPSERT_ARTICLE_TRANSFORMATION), {
             "p1": article_id,
             "p2": title,
             "p3": summary,
             "p4": language,
         })
+
+    def upsert_article_transformation_content(self, *, article_id: int, content: Optional[str]) -> None:
+        self._conn.execute(sqlalchemy.text(UPSERT_ARTICLE_TRANSFORMATION_CONTENT), {"p1": article_id, "p2": content})

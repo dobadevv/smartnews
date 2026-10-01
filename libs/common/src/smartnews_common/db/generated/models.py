@@ -38,7 +38,8 @@ class ArticleDelivery:
 @dataclasses.dataclass()
 class ArticleTransformation:
     article_id: int
-    title: str
+    title: Optional[str]
     summary: Optional[str]
     language: str
     created_at: datetime.datetime
+    content: Optional[str]
