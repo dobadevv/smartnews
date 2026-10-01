@@ -84,7 +84,7 @@ class GeminiFilter(_GeminiModel):
         # The SDK leaves `parsed` as None when the prompt was blocked or the
         # text did not match the schema.
         if not isinstance(response.parsed, _TranslatedArticle):
-            raise ValueError("gemini response did not contain a title and summary")
+            raise TypeError("gemini response did not contain a title and summary")
         return response.parsed
 
 

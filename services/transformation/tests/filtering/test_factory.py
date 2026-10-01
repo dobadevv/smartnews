@@ -4,7 +4,11 @@ from smartnews_transformation.filtering.factory import (
     build_content_translator,
     build_filter,
 )
-from smartnews_transformation.filtering.gemini import DEFAULT_MODEL, GeminiFilter
+from smartnews_transformation.filtering.gemini import (
+    DEFAULT_MODEL,
+    GeminiContentTranslator,
+    GeminiFilter,
+)
 from smartnews_transformation.filtering.groq import DEFAULT_MODEL as GROQ_DEFAULT_MODEL
 from smartnews_transformation.filtering.groq import GroqContentTranslator, GroqFilter
 from smartnews_transformation.filtering.passthrough import PassthroughFilter
@@ -109,6 +113,58 @@ def test_build_content_translator_raises_when_groq_env_var_is_missing(
         build_content_translator(LlmStepConfig(enabled=True, provider="groq"))
 
 
-def test_build_content_translator_rejects_providers_other_than_groq() -> None:
-    with pytest.raises(RuntimeError, match="gemini"):
+def test_build_content_translator_builds_gemini_translator_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key")
+
+    result = build_content_translator(LlmStepConfig(enabled=True, provider="gemini"))
+
+    assert isinstance(result, GeminiContentTranslator)
+    assert result._client._api_client.api_key == "fake-key"
+    assert result._model == DEFAULT_MODEL
+
+
+def test_build_content_translator_uses_configured_model_for_gemini(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key")
+
+    result = build_content_translator(
+        LlmStepConfig(enabled=True, provider="gemini", model="some-other-model")
+    )
+
+    assert isinstance(result, GeminiContentTranslator)
+    assert result._model == "some-other-model"
+
+
+def test_build_content_translator_raises_when_gemini_env_var_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
         build_content_translator(LlmStepConfig(enabled=True, provider="gemini"))
+
+
+def test_build_filter_rejects_an_unsupported_provider() -> None:
+    with pytest.raises(RuntimeError, match="openai"):
+        build_filter(LlmStepConfig(enabled=True, provider="openai"))
+
+
+def test_build_content_translator_rejects_an_unsupported_provider() -> None:
+    with pytest.raises(RuntimeError, match="openai"):
+        build_content_translator(LlmStepConfig(enabled=True, provider="openai"))
+
+
+def test_each_step_only_requires_the_api_key_of_its_own_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "fake-key")
+
+    translator = build_content_translator(LlmStepConfig(enabled=True, provider="groq"))
+
+    assert isinstance(translator, GroqContentTranslator)
+    with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
+        build_filter(LlmStepConfig(enabled=True, provider="gemini"))

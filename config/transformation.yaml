@@ -1,7 +1,7 @@
 summary:
   enabled: true
-  provider: groq
-  model: openai/gpt-oss-120b
+  provider: gemini
+  model: gemini-3.8-flash
 content:
   enabled: true
   provider: groq
