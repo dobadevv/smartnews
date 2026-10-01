@@ -4,7 +4,7 @@ timezone: Asia/Ho_Chi_Minh
 
 # When true, the fetcher runs a single cycle immediately and exits instead
 # of looping daily at run_at. Useful for a manual/one-off trigger.
-run_once: false
+run_once: true
 
 sources:
   # ===== Architecture =====

@@ -20,8 +20,7 @@ services:
   rabbitmq:
     image: rabbitmq:4-management-alpine
     ports:
-      # Management UI: host-local only. The image's default guest/guest
-      # login must never be reachable from outside this machine.
+      - "5672:5672"
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
