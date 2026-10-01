@@ -14,3 +14,12 @@ class Filter(Protocol):
         Raises TransformationError when the provider call fails.
         """
         ...
+
+
+class ContentTranslator(Protocol):
+    def translate(self, content: str) -> str:
+        """Return the content translated into Vietnamese.
+
+        Raises TransformationError when the provider call fails.
+        """
+        ...
