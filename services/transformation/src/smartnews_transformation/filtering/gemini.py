@@ -6,7 +6,11 @@ from pydantic import BaseModel
 from smartnews_common.models import Article, Transformation
 
 from smartnews_transformation.filtering.base import TransformationError
-from smartnews_transformation.filtering.prompts import build_translation_prompt
+from smartnews_transformation.filtering.prompts import (
+    MAX_CONTENT_CHARS,
+    build_content_translation_prompt,
+    build_translation_prompt,
+)
 
 DEFAULT_API_BASE_URL = "https://generativelanguage.googleapis.com/"
 DEFAULT_MODEL = "gemini-3.8-flash"
@@ -82,3 +86,17 @@ class GeminiFilter(_GeminiModel):
         if not isinstance(response.parsed, _TranslatedArticle):
             raise ValueError("gemini response did not contain a title and summary")
         return response.parsed
+
+
+class GeminiContentTranslator(_GeminiModel):
+    def translate(self, content: str) -> str:
+        try:
+            response = self._generate(
+                build_content_translation_prompt(content[:MAX_CONTENT_CHARS])
+            )
+            translated = (response.text or "").strip()
+        except Exception as error:
+            raise TransformationError("gemini content translation failed") from error
+        if not translated:
+            raise TransformationError("gemini returned an empty content translation")
+        return translated

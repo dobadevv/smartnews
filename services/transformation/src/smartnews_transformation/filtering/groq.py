@@ -9,6 +9,7 @@ from smartnews_common.models import Article, Transformation
 
 from smartnews_transformation.filtering.base import TransformationError
 from smartnews_transformation.filtering.prompts import (
+    MAX_CONTENT_CHARS,
     build_content_translation_prompt,
     build_translation_prompt,
 )
@@ -18,8 +19,6 @@ DEFAULT_MODEL = "openai/gpt-oss-120b"
 DEFAULT_RATE_LIMIT_TIMEOUT_SECONDS = 60.0
 DEFAULT_RETRY_AFTER_SECONDS = 1.0
 RATE_LIMIT_STATUS_CODE = 429
-# Keeps the prompt and the translated output within the model's token limits.
-MAX_CONTENT_CHARS = 12000
 
 logger = logging.getLogger(__name__)
 

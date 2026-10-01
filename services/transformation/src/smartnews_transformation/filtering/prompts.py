@@ -1,5 +1,8 @@
 from smartnews_common.models import Article
 
+# Keeps the prompt and the translated output within the model's token limits.
+MAX_CONTENT_CHARS = 12000
+
 
 def build_translation_prompt(article: Article) -> str:
     return (

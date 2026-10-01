@@ -1,10 +1,8 @@
 import pytest
 from pytest_httpserver import HTTPServer
 from smartnews_transformation.filtering.base import TransformationError
-from smartnews_transformation.filtering.groq import (
-    MAX_CONTENT_CHARS,
-    GroqContentTranslator,
-)
+from smartnews_transformation.filtering.groq import GroqContentTranslator
+from smartnews_transformation.filtering.prompts import MAX_CONTENT_CHARS
 from werkzeug.wrappers import Response
 
 ENDPOINT = "/openai/v1/chat/completions"
