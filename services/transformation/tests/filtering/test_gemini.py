@@ -23,18 +23,12 @@ def make_article(
     )
 
 
+def gemini_text_response(text: str) -> dict:
+    return {"candidates": [{"content": {"parts": [{"text": text}]}}]}
+
+
 def gemini_response(title: str, summary: str) -> dict:
-    return {
-        "candidates": [
-            {
-                "content": {
-                    "parts": [
-                        {"text": json.dumps({"title": title, "summary": summary})}
-                    ]
-                }
-            }
-        ]
-    }
+    return gemini_text_response(json.dumps({"title": title, "summary": summary}))
 
 
 def test_transform_replaces_title_and_summary_with_gemini_response(
@@ -90,11 +84,12 @@ def test_transform_prompt_includes_title_and_summary(httpserver: HTTPServer) -> 
     assert "Original summary text" in prompt
 
 
+@pytest.mark.parametrize("status", [429, 500, 503])
 def test_transform_raises_transformation_error_when_request_fails(
-    httpserver: HTTPServer, caplog: pytest.LogCaptureFixture
+    httpserver: HTTPServer, caplog: pytest.LogCaptureFixture, status: int
 ) -> None:
     httpserver.expect_request(ENDPOINT, method="POST").respond_with_response(
-        Response(status=500)
+        Response(status=status)
     )
     gemini_filter = GeminiFilter(api_key="fake-key", api_base_url=httpserver.url_for(""))
 
@@ -102,7 +97,7 @@ def test_transform_raises_transformation_error_when_request_fails(
         gemini_filter.transform(make_article())
 
     messages = [record.getMessage() for record in caplog.records]
-    assert any("500" in message for message in messages)
+    assert any(str(status) in message for message in messages)
     assert not any("fake-key" in message for message in messages)
 
 
@@ -132,3 +127,37 @@ def test_transform_next_call_succeeds_after_a_previous_call_failed(
     succeeding_result = gemini_filter.transform(make_article(title="Succeeds", summary="s2"))
 
     assert succeeding_result.title == "Đã dịch"
+
+
+def test_transform_asks_gemini_for_a_json_object_with_title_and_summary(
+    httpserver: HTTPServer,
+) -> None:
+    httpserver.expect_request(ENDPOINT, method="POST").respond_with_json(
+        gemini_response("T", "S")
+    )
+    gemini_filter = GeminiFilter(api_key="fake-key", api_base_url=httpserver.url_for(""))
+
+    gemini_filter.transform(make_article())
+
+    generation_config = httpserver.log[0][0].get_json()["generationConfig"]
+    assert generation_config["responseMimeType"] == "application/json"
+    assert set(generation_config["responseSchema"]["properties"]) == {"title", "summary"}
+
+
+@pytest.mark.parametrize(
+    "response_body",
+    [
+        {"promptFeedback": {"blockReason": "SAFETY"}},
+        gemini_text_response(json.dumps({"title": "Only a title"})),
+        gemini_text_response("this is not json"),
+    ],
+    ids=["prompt-blocked", "summary-missing", "text-is-not-json"],
+)
+def test_transform_raises_transformation_error_when_gemini_returns_no_usable_result(
+    httpserver: HTTPServer, response_body: dict
+) -> None:
+    httpserver.expect_request(ENDPOINT, method="POST").respond_with_json(response_body)
+    gemini_filter = GeminiFilter(api_key="fake-key", api_base_url=httpserver.url_for(""))
+
+    with pytest.raises(TransformationError, match="hello-world"):
+        gemini_filter.transform(make_article())

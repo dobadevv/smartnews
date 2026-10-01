@@ -24,8 +24,8 @@ def test_build_filter_builds_gemini_filter_from_env_when_enabled(
     result = build_filter(LlmStepConfig(enabled=True))
 
     assert isinstance(result, GeminiFilter)
-    assert result._api_key == "fake-key"
-    assert result._url.endswith(f"{DEFAULT_MODEL}:generateContent")
+    assert result._client._api_client.api_key == "fake-key"
+    assert result._model == DEFAULT_MODEL
 
 
 def test_build_filter_uses_configured_model_when_provided(
@@ -36,7 +36,7 @@ def test_build_filter_uses_configured_model_when_provided(
     result = build_filter(LlmStepConfig(enabled=True, model="some-other-model"))
 
     assert isinstance(result, GeminiFilter)
-    assert result._url.endswith("some-other-model:generateContent")
+    assert result._model == "some-other-model"
 
 
 def test_build_filter_raises_when_enabled_but_env_var_missing(
