@@ -30,14 +30,27 @@ def main() -> None:
     stop_requested = threading.Event()
     call_on_shutdown_signals(stop_requested.set)
     zone = ZoneInfo(config.timezone)
-    logger.info(
-        "fetcher started: %d enabled source(s), runs daily at %s %s",
-        sum(1 for source in config.sources if source.enabled),
-        config.run_at,
-        config.timezone,
-    )
-    run_daily_at(lambda: _run_logged_cycle(deps), config.run_at, zone, stop_requested)
+    if config.run_once:
+        logger.info(
+            "fetcher started: %d enabled source(s), run_once=true, running a single cycle",
+            sum(1 for source in config.sources if source.enabled),
+        )
+    else:
+        logger.info(
+            "fetcher started: %d enabled source(s), runs daily at %s %s",
+            sum(1 for source in config.sources if source.enabled),
+            config.run_at,
+            config.timezone,
+        )
+    _start(deps, zone, stop_requested)
     logger.info("fetcher stopped")
+
+
+def _start(deps: CycleDeps, zone: ZoneInfo, stop_requested: threading.Event) -> None:
+    if deps.config.run_once:
+        _run_logged_cycle(deps)
+        return
+    run_daily_at(lambda: _run_logged_cycle(deps), deps.config.run_at, zone, stop_requested)
 
 
 def _run_logged_cycle(deps: CycleDeps) -> None:

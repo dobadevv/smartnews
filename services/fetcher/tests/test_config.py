@@ -65,3 +65,23 @@ def test_fetcher_config_defaults_to_seven_am_asia_ho_chi_minh() -> None:
 def test_fetcher_config_rejects_an_unknown_timezone() -> None:
     with pytest.raises(ValidationError):
         FetcherConfig(timezone="Not/AZone", sources=[])
+
+
+def test_fetcher_config_defaults_run_once_to_false() -> None:
+    config = FetcherConfig(sources=[])
+
+    assert config.run_once is False
+
+
+def test_load_fetcher_config_parses_run_once(tmp_path: Path) -> None:
+    path = write_config(
+        tmp_path,
+        """
+run_once: true
+sources: []
+""",
+    )
+
+    config = load_fetcher_config(path)
+
+    assert config.run_once is True

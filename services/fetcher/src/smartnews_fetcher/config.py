@@ -18,6 +18,7 @@ class SourceConfig(BaseModel):
 class FetcherConfig(BaseModel):
     run_at: time = time(7, 0)
     timezone: str = "Asia/Ho_Chi_Minh"
+    run_once: bool = False
     sources: list[SourceConfig]
 
     @field_validator("timezone")
