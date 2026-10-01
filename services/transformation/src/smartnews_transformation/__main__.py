@@ -33,7 +33,7 @@ def main() -> None:
     )
     handler = TransformationHandler(
         TransformationHandlerDeps(
-            article_filter=build_filter(config.filter), recorder=recorder
+            article_filter=build_filter(config.summary), recorder=recorder
         )
     )
     consumers = [
@@ -47,15 +47,18 @@ def main() -> None:
             )
         )
     ]
-    content_consumer = build_content_consumer(config.filter, rabbitmq_url, recorder)
+    content_consumer = build_content_consumer(config.content, rabbitmq_url, recorder)
     if content_consumer is not None:
         consumers.append(content_consumer)
     group = ConsumerGroup(consumers)
     call_on_shutdown_signals(group.stop)
     logger.info(
-        "transformation started: filter enabled=%s provider=%s consumers=%d",
-        config.filter.enabled,
-        config.filter.provider,
+        "transformation started: summary enabled=%s provider=%s, "
+        "content enabled=%s provider=%s, consumers=%d",
+        config.summary.enabled,
+        config.summary.provider,
+        config.content.enabled,
+        config.content.provider,
         len(consumers),
     )
     group.run()

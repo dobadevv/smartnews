@@ -1,7 +1,7 @@
 import pytest
 from smartnews_common.messages import ArticleCrawled
 from smartnews_common.messaging.topology import ARTICLES_CRAWLED
-from smartnews_transformation.config import FilterConfig
+from smartnews_transformation.config import LlmStepConfig
 from smartnews_transformation.content_consumer import build_content_consumer
 
 RABBITMQ_URL = "amqp://guest:guest@localhost:5672/%2F"
@@ -12,9 +12,9 @@ class NullContentRecorder:
         pass
 
 
-def test_build_content_consumer_returns_none_when_the_filter_is_disabled() -> None:
+def test_build_content_consumer_returns_none_when_the_step_is_disabled() -> None:
     result = build_content_consumer(
-        FilterConfig(enabled=False), RABBITMQ_URL, NullContentRecorder()
+        LlmStepConfig(enabled=False), RABBITMQ_URL, NullContentRecorder()
     )
 
     assert result is None
@@ -26,7 +26,7 @@ def test_build_content_consumer_consumes_crawled_articles_and_publishes_nothing(
     monkeypatch.setenv("GROQ_API_KEY", "fake-key")
 
     consumer = build_content_consumer(
-        FilterConfig(enabled=True, provider="groq"), RABBITMQ_URL, NullContentRecorder()
+        LlmStepConfig(enabled=True, provider="groq"), RABBITMQ_URL, NullContentRecorder()
     )
 
     deps = consumer._deps

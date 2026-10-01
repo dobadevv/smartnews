@@ -42,8 +42,11 @@ fetcher ──► (fan-out) ─┤
   broker confirms. A failed publish rolls back, so the article is retried
   next cycle.
 - **transformation-service** (`services/transformation`) — consumes
-  `articles.fetched`, runs the configured `Filter` (Gemini/Groq/passthrough),
-  upserts `article_transformations`, publishes `ArticleTransformed`.
+  `articles.fetched`, runs the `summary` step's configured `Filter`
+  (Gemini/Groq/passthrough), upserts `article_transformations`, publishes
+  `ArticleTransformed`. A second consumer translates crawled content with
+  the `content` step's `ContentTranslator` (Gemini or Groq); each step picks
+  its provider and model independently.
   Filters raise `TransformationError`; on the final attempt the article is
   forwarded untranslated (`language=None`) instead of dropped.
 - **notification-service** (`services/notification`) — consumes
@@ -84,7 +87,7 @@ The attempt number travels in the `x-attempt` header.
 One file per service under `config/`: `fetcher.yaml`
 (`run_at`/`timezone`, `sources[]` with `name`, `url`, `category`,
 `enabled`, `max_posts`, `lookback_days`), `transformation.yaml`
-(`filter.enabled`, `filter.provider`, `filter.model`),
+(`summary` and `content`, each with `enabled`, `provider`, `model`),
 `notification.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
 (`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`).
 Credentials come only from env: `DATABASE_URL`, `RABBITMQ_URL` for all
