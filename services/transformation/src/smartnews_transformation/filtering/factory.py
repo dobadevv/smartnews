@@ -2,7 +2,10 @@ import os
 
 from smartnews_transformation.config import LlmStepConfig
 from smartnews_transformation.filtering.base import ContentTranslator, Filter
-from smartnews_transformation.filtering.gemini import GeminiFilter
+from smartnews_transformation.filtering.gemini import (
+    GeminiContentTranslator,
+    GeminiFilter,
+)
 from smartnews_transformation.filtering.groq import GroqContentTranslator, GroqFilter
 from smartnews_transformation.filtering.passthrough import PassthroughFilter
 
@@ -11,43 +14,46 @@ def build_filter(config: LlmStepConfig) -> Filter:
     if not config.enabled:
         return PassthroughFilter()
 
-    if config.provider == "groq":
-        return _build_groq_filter(config)
-    return _build_gemini_filter(config)
+    match config.provider:
+        case "gemini":
+            return GeminiFilter(
+                _require_api_key("GEMINI_API_KEY"), **_model_options(config)
+            )
+        case "groq":
+            return GroqFilter(
+                _require_api_key("GROQ_API_KEY"), **_model_options(config)
+            )
+        case _:
+            raise _unsupported_provider(config)
 
 
 def build_content_translator(config: LlmStepConfig) -> ContentTranslator | None:
     if not config.enabled:
         return None
 
-    if config.provider != "groq":
-        raise RuntimeError(
-            f"content translation only supports groq, not {config.provider}"
-        )
-    api_key = _require_groq_api_key()
-    if config.model:
-        return GroqContentTranslator(api_key, model=config.model)
-    return GroqContentTranslator(api_key)
+    match config.provider:
+        case "gemini":
+            return GeminiContentTranslator(
+                _require_api_key("GEMINI_API_KEY"), **_model_options(config)
+            )
+        case "groq":
+            return GroqContentTranslator(
+                _require_api_key("GROQ_API_KEY"), **_model_options(config)
+            )
+        case _:
+            raise _unsupported_provider(config)
 
 
-def _build_gemini_filter(config: LlmStepConfig) -> GeminiFilter:
-    api_key = os.environ.get("GEMINI_API_KEY")
+def _model_options(config: LlmStepConfig) -> dict[str, str]:
+    return {"model": config.model} if config.model else {}
+
+
+def _require_api_key(name: str) -> str:
+    api_key = os.environ.get(name)
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY must be set when the filter is enabled")
-    if config.model:
-        return GeminiFilter(api_key, model=config.model)
-    return GeminiFilter(api_key)
-
-
-def _require_groq_api_key() -> str:
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        raise RuntimeError("GROQ_API_KEY must be set when the filter is enabled")
+        raise RuntimeError(f"{name} must be set when its provider is enabled")
     return api_key
 
 
-def _build_groq_filter(config: LlmStepConfig) -> GroqFilter:
-    api_key = _require_groq_api_key()
-    if config.model:
-        return GroqFilter(api_key, model=config.model)
-    return GroqFilter(api_key)
+def _unsupported_provider(config: LlmStepConfig) -> RuntimeError:
+    return RuntimeError(f"unsupported LLM provider: {config.provider!r}")
