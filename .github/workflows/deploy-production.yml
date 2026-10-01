@@ -126,6 +126,11 @@ jobs:
             set -e
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 
+            OLD_FETCHER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-fetcher 2>/dev/null || true)
+            OLD_CRAWLER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-crawler 2>/dev/null || true)
+            OLD_TRANSFORMATION_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-transformation 2>/dev/null || true)
+            OLD_NOTIFICATION_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-notification 2>/dev/null || true)
+
             docker pull ${IMAGE_BASE}-fetcher:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-crawler:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-transformation:${IMAGE_TAG}
@@ -158,5 +163,6 @@ jobs:
               -e TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}' \
               ${IMAGE_BASE}-notification:${IMAGE_TAG} smartnews-notification
 
+            docker rmi \$OLD_FETCHER_IMAGE \$OLD_CRAWLER_IMAGE \$OLD_TRANSFORMATION_IMAGE \$OLD_NOTIFICATION_IMAGE 2>/dev/null || true
             docker image prune -f
           "
