@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: smartnews
       POSTGRES_PASSWORD: smartnews
       POSTGRES_DB: smartnews
+    ports:
+      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +22,7 @@ services:
     ports:
       # Management UI: host-local only. The image's default guest/guest
       # login must never be reachable from outside this machine.
-      - "127.0.0.1:15672:15672"
+      - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
