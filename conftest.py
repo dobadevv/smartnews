@@ -1,6 +1,8 @@
+import itertools
 import time
 import uuid
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pika
@@ -40,6 +42,75 @@ def engine(database_engine: Engine) -> Engine:
     with database_engine.begin() as connection:
         connection.execute(text(f"TRUNCATE {APPLICATION_TABLES} RESTART IDENTITY"))
     return database_engine
+
+
+DEFAULT_PUBLISHED_AT = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+@pytest.fixture
+def insert_catalog_article(engine: Engine) -> Callable[..., int]:
+    """Insert an article plus its Vietnamese transformation and English content.
+
+    A transformation row is written when any `_vi` field is set and a content row
+    when `content_en` is set, so passing None for all of them leaves the article
+    without those rows (as the pipeline does before transformer/crawler run).
+    """
+    urls = (f"https://example.com/articles/{number}" for number in itertools.count())
+
+    def insert(
+        *,
+        title_en: str = "Title",
+        summary_en: str | None = "Summary",
+        content_en: str | None = "Content",
+        title_vi: str | None = "Tiêu đề",
+        summary_vi: str | None = "Tóm tắt",
+        content_vi: str | None = "Nội dung",
+        thumbnail: str | None = "https://example.com/thumbnail.png",
+        published_at: datetime | None = DEFAULT_PUBLISHED_AT,
+        created_at: datetime = DEFAULT_PUBLISHED_AT,
+        source: str = "source",
+        category: str | None = "tech",
+    ) -> int:
+        url = next(urls)
+        with engine.begin() as connection:
+            article_id = connection.execute(
+                text(
+                    "INSERT INTO articles (hash_url, url, title, summary, published_at, source,"
+                    " thumbnail, category, created_at)"
+                    " VALUES (:url, :url, :title, :summary, :published_at, :source,"
+                    " :thumbnail, :category, :created_at)"
+                    " RETURNING id"
+                ),
+                {
+                    "url": url,
+                    "title": title_en,
+                    "summary": summary_en,
+                    "published_at": published_at,
+                    "source": source,
+                    "thumbnail": thumbnail,
+                    "category": category,
+                    "created_at": created_at,
+                },
+            ).scalar_one()
+            if any(field is not None for field in (title_vi, summary_vi, content_vi)):
+                connection.execute(
+                    text(
+                        "INSERT INTO article_transformations (article_id, title, summary, language, content)"
+                        " VALUES (:article_id, :title, :summary, 'vi', :content)"
+                    ),
+                    {"article_id": article_id, "title": title_vi, "summary": summary_vi, "content": content_vi},
+                )
+            if content_en is not None:
+                connection.execute(
+                    text(
+                        "INSERT INTO article_contents (article_id, content, extractor)"
+                        " VALUES (:article_id, :content, 'test')"
+                    ),
+                    {"article_id": article_id, "content": content_en},
+                )
+        return article_id
+
+    return insert
 
 
 Delivery = tuple[pika.spec.Basic.GetOk, pika.BasicProperties, bytes]

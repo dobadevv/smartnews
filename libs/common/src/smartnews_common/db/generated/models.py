@@ -21,6 +21,23 @@ class Article:
 
 
 @dataclasses.dataclass()
+class ArticleCatalog:
+    id: int
+    title_en: str
+    title_vi: Optional[str]
+    summary_en: Optional[str]
+    summary_vi: Optional[str]
+    content_en: Optional[str]
+    content_vi: Optional[str]
+    thumbnail: Optional[str]
+    published_at: Optional[datetime.datetime]
+    url: str
+    source: str
+    category: Optional[str]
+    sort_at: datetime.datetime
+
+
+@dataclasses.dataclass()
 class ArticleContent:
     article_id: int
     content: str
