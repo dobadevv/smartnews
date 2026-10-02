@@ -1,7 +1,7 @@
 [project]
 name = "smartnews"
 version = "0.1.0"
-description = "RSS aggregation pipeline split into fetcher, transformer and notifier services"
+description = "RSS aggregation pipeline split into fetcher, transformer, notifier, crawler and api services"
 readme = "README.md"
 authors = [
     { name = "dobadev", email = "doba.fullstack@gmail.com" }
@@ -13,7 +13,7 @@ dependencies = []
 package = false
 
 [tool.uv.workspace]
-members = ["libs/common", "services/fetcher", "services/transformer", "services/notifier", "services/crawler"]
+members = ["libs/common", "services/fetcher", "services/transformer", "services/notifier", "services/crawler", "services/api"]
 
 [tool.uv.sources]
 smartnews-common = { workspace = true }
@@ -21,6 +21,7 @@ smartnews-fetcher = { workspace = true }
 smartnews-transformer = { workspace = true }
 smartnews-notifier = { workspace = true }
 smartnews-crawler = { workspace = true }
+smartnews-api = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["libs", "services", "e2e"]
@@ -34,6 +35,7 @@ dev = [
     "pytest-httpserver>=1.1.5",
     "responses>=0.26.3",
     "ruff>=0.16.8",
+    "smartnews-api",
     "smartnews-common",
     "smartnews-crawler",
     "smartnews-fetcher",

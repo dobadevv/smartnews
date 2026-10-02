@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [fetcher, transformer, notifier, crawler, migrate]
+        service: [fetcher, transformer, notifier, crawler, api, migrate]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,13 +130,15 @@ jobs:
             OLD_CRAWLER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-crawler 2>/dev/null || true)
             OLD_TRANSFORMER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-transformer 2>/dev/null || true)
             OLD_NOTIFIER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-notifier 2>/dev/null || true)
+            OLD_API_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-api 2>/dev/null || true)
 
             docker pull ${IMAGE_BASE}-fetcher:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-crawler:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-transformer:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-notifier:${IMAGE_TAG}
+            docker pull ${IMAGE_BASE}-api:${IMAGE_TAG}
 
-            docker rm -f smartnews-fetcher smartnews-crawler smartnews-transformer smartnews-notifier 2>/dev/null || true
+            docker rm -f smartnews-fetcher smartnews-crawler smartnews-transformer smartnews-notifier smartnews-api 2>/dev/null || true
 
             docker run -d --name smartnews-fetcher --restart unless-stopped \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
@@ -163,6 +165,13 @@ jobs:
               -e TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}' \
               ${IMAGE_BASE}-notifier:${IMAGE_TAG} smartnews-notifier
 
-            docker rmi \$OLD_FETCHER_IMAGE \$OLD_CRAWLER_IMAGE \$OLD_TRANSFORMER_IMAGE \$OLD_NOTIFIER_IMAGE 2>/dev/null || true
+            # Published on localhost only; the VPS reverse proxy forwards to it.
+            docker run -d --name smartnews-api --restart unless-stopped \
+              -p 127.0.0.1:8000:8000 \
+              -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
+              ${IMAGE_BASE}-api:${IMAGE_TAG} \
+              gunicorn --bind 0.0.0.0:8000 --workers 4 'smartnews_api.wsgi:build_app()'
+
+            docker rmi \$OLD_FETCHER_IMAGE \$OLD_CRAWLER_IMAGE \$OLD_TRANSFORMER_IMAGE \$OLD_NOTIFIER_IMAGE \$OLD_API_IMAGE 2>/dev/null || true
             docker image prune -f
           "

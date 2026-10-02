@@ -60,6 +60,11 @@ fetcher ──► (fan-out) ─┤
    stores it. It runs independently, so a site it cannot fetch never delays
    delivery. Nothing consumes `articles.crawled` yet, so that queue grows
    until a consumer exists or a retention policy is set in RabbitMQ.
+5. **api** serves the stored articles to the frontend news reader:
+   `GET /articles?lang=vi` (paginated with `limit` and `cursor`, filterable
+   by `category` and `source`) and `GET /articles/<id>?lang=vi`. An article
+   is listed only once its title, summary, content and thumbnail exist in
+   the requested language.
 
 Failed steps are retried after 1, 5 and 15 minutes, then parked in a
 dead-letter queue visible in the RabbitMQ UI (http://localhost:15672).
@@ -77,6 +82,7 @@ dead-letter queue visible in the RabbitMQ UI (http://localhost:15672).
 - `config/transformer.yaml` — for the `summary` and `content` steps: on/off, provider, model.
 - `config/notifier.yaml` — which channels are enabled.
 - `config/crawler.yaml` — request timeout, user agent and per-source content selectors.
+- `config/api.yaml` — origins allowed by CORS and the default/maximum page size.
 - Secrets: copy `services/transformer/.env.example` and
   `services/notifier/.env.example` to `.env` next to them and fill in
   the keys for what you enabled.
@@ -88,7 +94,8 @@ docker compose up -d --build
 docker compose logs -f fetcher transformer notifier crawler
 ```
 
-Migrations run automatically before the services start.
+Migrations run automatically before the services start. The API listens on
+http://localhost:8000 (e.g. `curl 'http://localhost:8000/articles?lang=en'`).
 
 ### Development
 

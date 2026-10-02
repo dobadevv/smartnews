@@ -1,0 +1,5 @@
+# Origins of the news reader frontend allowed to call the API from a browser.
+cors_allowed_origins:
+  - http://localhost:5173
+default_page_size: 20
+max_page_size: 100

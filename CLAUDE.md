@@ -20,11 +20,13 @@ time (`run_at`/`timezone`). The crawler runs independently of the transformer an
 notifier: `fetcher` publishes once, and RabbitMQ fans that single message out
 to both `articles.fetched` and `articles.crawl` (two queues bound to the same
 routing key), so a source the crawler cannot fetch never affects delivery.
+A separate read-only `api` service serves the stored articles to a frontend
+news reader over HTTP.
 
 ## Architecture
 
-Four services in one uv workspace, talking over RabbitMQ and sharing one
-Postgres database:
+Five services in one uv workspace sharing one Postgres database; the four
+pipeline services talk over RabbitMQ:
 
 ```
                        ┌──► [articles.fetched] ──► transformer ──► [articles.transformed] ──► notifier
@@ -64,6 +66,14 @@ fetcher ──► (fan-out) ─┤
   `articles.crawled` has no consumer yet, so it grows unbounded until one
   exists or an operator sets a RabbitMQ retention policy (`x-max-length` /
   `x-message-ttl`) on it externally.
+- **api-service** (`services/api`) — read-only Flask app (gunicorn, port
+  8000) for the frontend news reader. `GET /articles?lang=en|vi` returns a
+  cursor-paginated list (`limit`, `cursor`, optional `category`/`source`)
+  and `GET /articles/<id>?lang=en|vi` returns one article with its content.
+  It reads the `article_catalog` view, which holds both languages side by
+  side; `language.py` picks the requested one. An article appears only when
+  its title, summary, content and thumbnail exist in that language (the
+  list checks content too but does not return it). No RabbitMQ.
 - **smartnews_common** (`libs/common`) — `Article`/`Transformation` model,
   `article_key()` dedup hash, Pydantic message contracts, pika topology /
   publisher / consumer, SQLAlchemy engine, sqlc-generated queries and thin
@@ -81,6 +91,9 @@ The attempt number travels in the `x-attempt` header.
 - Queries live in `db/queries/*.sql`; run `sqlc generate` after changing
   them or a migration. Never edit `smartnews_common/db/generated/`.
 - The legacy `seen_articles` table is unused and can be dropped by hand.
+- `article_catalog` (migration 0004) is a read-only view joining `articles`,
+  `article_transformations` and `article_contents` into `_en`/`_vi` columns
+  plus `sort_at = COALESCE(published_at, created_at)`.
 
 ## Config
 
@@ -89,11 +102,12 @@ One file per service under `config/`: `fetcher.yaml`
 `enabled`, `max_posts`, `lookback_days`), `transformer.yaml`
 (`summary` and `content`, each with `enabled`, `provider`, `model`),
 `notifier.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
-(`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`).
-Credentials come only from env: `DATABASE_URL`, `RABBITMQ_URL` for all
-services; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
+(`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`),
+`api.yaml` (`cors_allowed_origins`, `default_page_size`, `max_page_size`).
+Credentials come only from env: `DATABASE_URL` for all services,
+`RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
 `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` for
-notifier. The crawler needs no API key. See `services/*/.env.example`.
+notifier. The crawler and api need no API key. See `services/*/.env.example`.
 
 ## Commands
 
