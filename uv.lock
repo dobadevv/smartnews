@@ -8,8 +8,8 @@ members = [
     "smartnews-common",
     "smartnews-crawler",
     "smartnews-fetcher",
-    "smartnews-notification",
-    "smartnews-transformation",
+    "smartnews-notifier",
+    "smartnews-transformer",
 ]
 
 [[package]]
@@ -1580,8 +1580,8 @@ dev = [
     { name = "smartnews-common" },
     { name = "smartnews-crawler" },
     { name = "smartnews-fetcher" },
-    { name = "smartnews-notification" },
-    { name = "smartnews-transformation" },
+    { name = "smartnews-notifier" },
+    { name = "smartnews-transformer" },
     { name = "testcontainers", extra = ["rabbitmq"] },
 ]
 migrate = [
@@ -1602,8 +1602,8 @@ dev = [
     { name = "smartnews-common", editable = "libs/common" },
     { name = "smartnews-crawler", editable = "services/crawler" },
     { name = "smartnews-fetcher", editable = "services/fetcher" },
-    { name = "smartnews-notification", editable = "services/notification" },
-    { name = "smartnews-transformation", editable = "services/transformation" },
+    { name = "smartnews-notifier", editable = "services/notifier" },
+    { name = "smartnews-transformer", editable = "services/transformer" },
     { name = "testcontainers", extras = ["postgres", "rabbitmq"], specifier = ">=4.15.0" },
 ]
 migrate = [
@@ -1673,9 +1673,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "smartnews-notification"
+name = "smartnews-notifier"
 version = "0.1.0"
-source = { editable = "services/notification" }
+source = { editable = "services/notifier" }
 dependencies = [
     { name = "discord-py" },
     { name = "pydantic" },
@@ -1696,9 +1696,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "smartnews-transformation"
+name = "smartnews-transformer"
 version = "0.1.0"
-source = { editable = "services/transformation" }
+source = { editable = "services/transformer" }
 dependencies = [
     { name = "google-genai" },
     { name = "groq" },

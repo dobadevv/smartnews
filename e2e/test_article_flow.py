@@ -32,13 +32,13 @@ from smartnews_crawler.handler import CrawlerHandler, CrawlerHandlerDeps
 from smartnews_crawler.recording import DatabaseContentRecorder
 from smartnews_fetcher.config import FetcherConfig, SourceConfig
 from smartnews_fetcher.cycle import CycleDeps, run_cycle
-from smartnews_notification.handler import NotificationHandler, NotificationHandlerDeps
-from smartnews_notification.ledger import DatabaseDeliveryLedger
-from smartnews_transformation.handler import (
+from smartnews_notifier.handler import NotificationHandler, NotificationHandlerDeps
+from smartnews_notifier.ledger import DatabaseDeliveryLedger
+from smartnews_transformer.handler import (
     TransformationHandler,
     TransformationHandlerDeps,
 )
-from smartnews_transformation.recording import DatabaseTransformationRecorder
+from smartnews_transformer.recording import DatabaseTransformationRecorder
 from sqlalchemy import Engine, text
 
 TIMEOUT_SECONDS = 15

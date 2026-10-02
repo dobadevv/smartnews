@@ -1,0 +1,22 @@
+[project]
+name = "smartnews-transformer"
+version = "0.1.0"
+description = "Translates and summarizes fetched articles with an LLM"
+requires-python = ">=3.14"
+dependencies = [
+    "google-genai>=2.26.0",
+    "groq>=1.7.0",
+    "pydantic>=2.13.5",
+    "pyyaml>=6.0.3",
+    "smartnews-common",
+]
+
+[project.scripts]
+smartnews-transformer = "smartnews_transformer.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+smartnews-common = { workspace = true }

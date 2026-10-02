@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [fetcher, transformation, notification, crawler, migrate]
+        service: [fetcher, transformer, notifier, crawler, migrate]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,15 +128,15 @@ jobs:
 
             OLD_FETCHER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-fetcher 2>/dev/null || true)
             OLD_CRAWLER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-crawler 2>/dev/null || true)
-            OLD_TRANSFORMATION_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-transformation 2>/dev/null || true)
-            OLD_NOTIFICATION_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-notification 2>/dev/null || true)
+            OLD_TRANSFORMER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-transformer 2>/dev/null || true)
+            OLD_NOTIFIER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-notifier 2>/dev/null || true)
 
             docker pull ${IMAGE_BASE}-fetcher:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-crawler:${IMAGE_TAG}
-            docker pull ${IMAGE_BASE}-transformation:${IMAGE_TAG}
-            docker pull ${IMAGE_BASE}-notification:${IMAGE_TAG}
+            docker pull ${IMAGE_BASE}-transformer:${IMAGE_TAG}
+            docker pull ${IMAGE_BASE}-notifier:${IMAGE_TAG}
 
-            docker rm -f smartnews-fetcher smartnews-crawler smartnews-transformation smartnews-notification 2>/dev/null || true
+            docker rm -f smartnews-fetcher smartnews-crawler smartnews-transformer smartnews-notifier 2>/dev/null || true
 
             docker run -d --name smartnews-fetcher --restart unless-stopped \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
@@ -148,21 +148,21 @@ jobs:
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               ${IMAGE_BASE}-crawler:${IMAGE_TAG} smartnews-crawler
 
-            docker run -d --name smartnews-transformation --restart unless-stopped \
+            docker run -d --name smartnews-transformer --restart unless-stopped \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               -e GEMINI_API_KEY='${{ secrets.GEMINI_API_KEY }}' \
               -e GROQ_API_KEY='${{ secrets.GROQ_API_KEY }}' \
-              ${IMAGE_BASE}-transformation:${IMAGE_TAG} smartnews-transformation
+              ${IMAGE_BASE}-transformer:${IMAGE_TAG} smartnews-transformer
 
-            docker run -d --name smartnews-notification --restart unless-stopped \
+            docker run -d --name smartnews-notifier --restart unless-stopped \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               -e DISCORD_WEBHOOK_URL='${{ secrets.DISCORD_WEBHOOK_URL }}' \
               -e TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}' \
               -e TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}' \
-              ${IMAGE_BASE}-notification:${IMAGE_TAG} smartnews-notification
+              ${IMAGE_BASE}-notifier:${IMAGE_TAG} smartnews-notifier
 
-            docker rmi \$OLD_FETCHER_IMAGE \$OLD_CRAWLER_IMAGE \$OLD_TRANSFORMATION_IMAGE \$OLD_NOTIFICATION_IMAGE 2>/dev/null || true
+            docker rmi \$OLD_FETCHER_IMAGE \$OLD_CRAWLER_IMAGE \$OLD_TRANSFORMER_IMAGE \$OLD_NOTIFIER_IMAGE 2>/dev/null || true
             docker image prune -f
           "

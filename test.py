@@ -2,7 +2,7 @@
 
 Usage:
     DATABASE_URL=postgresql://... GROQ_API_KEY=... \
-        uv run --package transformation-service python test.py [target_language]
+        uv run --package smartnews-transformer python test.py [target_language]
 """
 
 import os

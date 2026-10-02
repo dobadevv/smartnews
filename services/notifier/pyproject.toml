@@ -1,0 +1,23 @@
+[project]
+name = "smartnews-notifier"
+version = "0.1.0"
+description = "Sends transformed articles to Discord and Telegram"
+requires-python = ">=3.14"
+dependencies = [
+    "discord-py>=2.7.1",
+    "pydantic>=2.13.5",
+    "python-telegram-bot>=22.8",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "smartnews-common",
+]
+
+[project.scripts]
+smartnews-notifier = "smartnews_notifier.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+smartnews-common = { workspace = true }

@@ -16,8 +16,8 @@ Fetcher -> [RabbitMQ, fanned out]
 ```
 
 Each stage runs as its own service; the fetcher runs once daily at a configured
-time (`run_at`/`timezone`). The crawler runs independently of transformation and
-notification: `fetcher` publishes once, and RabbitMQ fans that single message out
+time (`run_at`/`timezone`). The crawler runs independently of the transformer and
+notifier: `fetcher` publishes once, and RabbitMQ fans that single message out
 to both `articles.fetched` and `articles.crawl` (two queues bound to the same
 routing key), so a source the crawler cannot fetch never affects delivery.
 
@@ -27,7 +27,7 @@ Four services in one uv workspace, talking over RabbitMQ and sharing one
 Postgres database:
 
 ```
-                       ┌──► [articles.fetched] ──► transformation ──► [articles.transformed] ──► notification
+                       ┌──► [articles.fetched] ──► transformer ──► [articles.transformed] ──► notifier
 fetcher ──► (fan-out) ─┤
                        └──► [articles.crawl] ──► crawler ──► [articles.crawled] (no consumer yet)
 ```
@@ -41,7 +41,7 @@ fetcher ──► (fan-out) ─┤
   `ArticleFetched` inside one transaction, committing only after the
   broker confirms. A failed publish rolls back, so the article is retried
   next cycle.
-- **transformation-service** (`services/transformation`) — consumes
+- **transformer-service** (`services/transformer`) — consumes
   `articles.fetched`, runs the `summary` step's configured `Filter`
   (Gemini/Groq/passthrough), upserts `article_transformations`, publishes
   `ArticleTransformed`. A second consumer translates crawled content with
@@ -49,7 +49,7 @@ fetcher ──► (fan-out) ─┤
   its provider and model independently.
   Filters raise `TransformationError`; on the final attempt the article is
   forwarded untranslated (`language=None`) instead of dropped.
-- **notification-service** (`services/notification`) — consumes
+- **notifier-service** (`services/notifier`) — consumes
   `articles.transformed`; for each enabled notifier, skips channels already
   recorded in `article_deliveries`, sends, then records the delivery. If
   any channel fails the message is retried; redeliveries never double-post.
@@ -60,7 +60,7 @@ fetcher ──► (fan-out) ─┤
   `config/crawler.yaml`), upserts `article_contents`, and publishes
   `ArticleCrawled` to `articles.crawled`. A failed crawl goes through the
   standard retry ladder and DLQ like every other consumer; nothing downstream
-  depends on it, so it never blocks or delays transformation/notification.
+  depends on it, so it never blocks or delays transformer/notifier.
   `articles.crawled` has no consumer yet, so it grows unbounded until one
   exists or an operator sets a RabbitMQ retention policy (`x-max-length` /
   `x-message-ttl`) on it externally.
@@ -86,14 +86,14 @@ The attempt number travels in the `x-attempt` header.
 
 One file per service under `config/`: `fetcher.yaml`
 (`run_at`/`timezone`, `sources[]` with `name`, `url`, `category`,
-`enabled`, `max_posts`, `lookback_days`), `transformation.yaml`
+`enabled`, `max_posts`, `lookback_days`), `transformer.yaml`
 (`summary` and `content`, each with `enabled`, `provider`, `model`),
-`notification.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
+`notifier.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
 (`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`).
 Credentials come only from env: `DATABASE_URL`, `RABBITMQ_URL` for all
-services; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformation;
+services; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
 `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` for
-notification. The crawler needs no API key. See `services/*/.env.example`.
+notifier. The crawler needs no API key. See `services/*/.env.example`.
 
 ## Commands
 

@@ -1,7 +1,7 @@
 [project]
 name = "smartnews"
 version = "0.1.0"
-description = "RSS aggregation pipeline split into fetcher, transformation and notification services"
+description = "RSS aggregation pipeline split into fetcher, transformer and notifier services"
 readme = "README.md"
 authors = [
     { name = "dobadev", email = "doba.fullstack@gmail.com" }
@@ -13,13 +13,13 @@ dependencies = []
 package = false
 
 [tool.uv.workspace]
-members = ["libs/common", "services/fetcher", "services/transformation", "services/notification", "services/crawler"]
+members = ["libs/common", "services/fetcher", "services/transformer", "services/notifier", "services/crawler"]
 
 [tool.uv.sources]
 smartnews-common = { workspace = true }
 smartnews-fetcher = { workspace = true }
-smartnews-transformation = { workspace = true }
-smartnews-notification = { workspace = true }
+smartnews-transformer = { workspace = true }
+smartnews-notifier = { workspace = true }
 smartnews-crawler = { workspace = true }
 
 [tool.pytest.ini_options]
@@ -37,8 +37,8 @@ dev = [
     "smartnews-common",
     "smartnews-crawler",
     "smartnews-fetcher",
-    "smartnews-notification",
-    "smartnews-transformation",
+    "smartnews-notifier",
+    "smartnews-transformer",
     "testcontainers[postgres,rabbitmq]>=4.15.0",
 ]
 migrate = [

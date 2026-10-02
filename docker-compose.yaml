@@ -73,34 +73,34 @@ services:
     depends_on: *service-dependencies
     restart: unless-stopped
 
-  transformation:
+  transformer:
     build:
       context: .
       args:
-        UV_SYNC_ARGS: --no-dev --package smartnews-transformation
-    command: ["smartnews-transformation"]
+        UV_SYNC_ARGS: --no-dev --package smartnews-transformer
+    command: ["smartnews-transformer"]
     environment:
       DATABASE_URL: *database-url
       RABBITMQ_URL: *rabbitmq-url
     env_file:
-      - path: services/transformation/.env
+      - path: services/transformer/.env
         required: false
     volumes:
       - ./config:/app/config:ro
     depends_on: *service-dependencies
     restart: unless-stopped
 
-  notification:
+  notifier:
     build:
       context: .
       args:
-        UV_SYNC_ARGS: --no-dev --package smartnews-notification
-    command: ["smartnews-notification"]
+        UV_SYNC_ARGS: --no-dev --package smartnews-notifier
+    command: ["smartnews-notifier"]
     environment:
       DATABASE_URL: *database-url
       RABBITMQ_URL: *rabbitmq-url
     env_file:
-      - path: services/notification/.env
+      - path: services/notifier/.env
         required: false
     volumes:
       - ./config:/app/config:ro
