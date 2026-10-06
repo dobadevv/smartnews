@@ -107,6 +107,21 @@ services:
     depends_on: *service-dependencies
     restart: unless-stopped
 
+  redriver:
+    build:
+      context: .
+      args:
+        UV_SYNC_ARGS: --no-dev --package smartnews-redriver
+    command: ["smartnews-redriver"]
+    environment:
+      RABBITMQ_URL: *rabbitmq-url
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
   api:
     build:
       context: .
