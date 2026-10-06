@@ -65,7 +65,7 @@ def redrive_queue(
 ) -> RedriveResult:
     dead_letter_queue = dead_letter_queue_name(queue)
     snapshot_count = channel.queue_declare(
-        dead_letter_queue, passive=True
+        queue=dead_letter_queue, passive=True
     ).method.message_count
     redriven = 0
     for position in range(snapshot_count):
@@ -73,7 +73,9 @@ def redrive_queue(
             stop_requested=stop_requested, delay_seconds=delay_seconds
         ):
             break
-        method, _properties, body = channel.basic_get(dead_letter_queue, auto_ack=False)
+        method, _properties, body = channel.basic_get(
+            queue=dead_letter_queue, auto_ack=False
+        )
         if method is None:
             break
         try:

@@ -23,12 +23,16 @@ FINAL_ATTEMPT = 4
 @pytest.fixture
 def clean_crawl_queues(rabbitmq_channel: BlockingChannel) -> None:
     declare_stage(
-        rabbitmq_channel,
-        ARTICLES_TO_CRAWL,
-        DEFAULT_RETRY_DELAYS,
+        channel=rabbitmq_channel,
+        queue=ARTICLES_TO_CRAWL,
+        retry_delays=DEFAULT_RETRY_DELAYS,
         routing_key=ARTICLES_FETCHED,
     )
-    declare_stage(rabbitmq_channel, ARTICLES_FETCHED, DEFAULT_RETRY_DELAYS)
+    declare_stage(
+        channel=rabbitmq_channel,
+        queue=ARTICLES_FETCHED,
+        retry_delays=DEFAULT_RETRY_DELAYS,
+    )
     # Retry queues too: a leftover would TTL back into a main queue mid-test.
     retry_queues = [
         retry_queue_name(queue, delay)
@@ -144,7 +148,7 @@ def test_a_message_whose_main_queue_is_missing_stays_in_the_dead_letter_queue(
     message_count: Callable[[str], int],
 ) -> None:
     orphan_dead_letter_queue = dead_letter_queue_name(unique_queue)
-    rabbitmq_channel.queue_declare(orphan_dead_letter_queue, durable=True)
+    rabbitmq_channel.queue_declare(queue=orphan_dead_letter_queue, durable=True)
     dead_letter(
         channel=rabbitmq_channel,
         queue=orphan_dead_letter_queue,
