@@ -1,0 +1,18 @@
+[project]
+name = "smartnews-redriver"
+version = "0.1.0"
+description = "Moves dead-lettered messages back to their main queue every hour"
+requires-python = ">=3.14"
+dependencies = [
+    "pika>=1.4.4",
+    "pydantic>=2.13.5",
+    "pyyaml>=6.0.3",
+    "smartnews-common",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+smartnews-common = { workspace = true }

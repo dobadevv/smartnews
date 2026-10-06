@@ -10,6 +10,7 @@ members = [
     "smartnews-crawler",
     "smartnews-fetcher",
     "smartnews-notifier",
+    "smartnews-redriver",
     "smartnews-transformer",
 ]
 
@@ -1690,6 +1691,7 @@ dev = [
     { name = "smartnews-crawler" },
     { name = "smartnews-fetcher" },
     { name = "smartnews-notifier" },
+    { name = "smartnews-redriver" },
     { name = "smartnews-transformer" },
     { name = "testcontainers", extra = ["rabbitmq"] },
 ]
@@ -1714,6 +1716,7 @@ dev = [
     { name = "smartnews-crawler", editable = "services/crawler" },
     { name = "smartnews-fetcher", editable = "services/fetcher" },
     { name = "smartnews-notifier", editable = "services/notifier" },
+    { name = "smartnews-redriver", editable = "services/redriver" },
     { name = "smartnews-transformer", editable = "services/transformer" },
     { name = "testcontainers", extras = ["postgres", "rabbitmq"], specifier = ">=4.15.0" },
 ]
@@ -1826,6 +1829,25 @@ requires-dist = [
     { name = "python-telegram-bot", specifier = ">=22.8" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.32.5" },
+    { name = "smartnews-common", editable = "libs/common" },
+]
+
+[[package]]
+name = "smartnews-redriver"
+version = "0.1.0"
+source = { editable = "services/redriver" }
+dependencies = [
+    { name = "pika" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "smartnews-common" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pika", specifier = ">=1.4.4" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "smartnews-common", editable = "libs/common" },
 ]
 

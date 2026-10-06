@@ -1,0 +1,15 @@
+# Runs at the top of every hour (minute :00) in this timezone, e.g. 01:00, 02:00, 03:00.
+timezone: Asia/Ho_Chi_Minh
+
+# When true, runs a single redrive pass immediately and exits instead of
+# looping hourly. Useful for local testing.
+run_once: false
+
+# Seconds to wait between two redriven messages, so the redriven crawls do
+# not hit the rate limit that dead-lettered them. Keep it well below 600
+# (the RabbitMQ heartbeat); the connection stays open but idle while waiting.
+delay_seconds: 5
+
+# Main queues to redrive; each one's dead-letter queue is <queue>.dlq.
+queues:
+  - articles.crawl

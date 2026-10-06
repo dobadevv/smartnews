@@ -1,0 +1,23 @@
+from pathlib import Path
+
+import yaml
+from pydantic import BaseModel, Field, field_validator
+from smartnews_common.messaging.topology import ARTICLES_TO_CRAWL
+from smartnews_common.timezones import validate_timezone
+
+
+class RedriverConfig(BaseModel):
+    timezone: str = "Asia/Ho_Chi_Minh"
+    run_once: bool = False
+    # Stay well below HEARTBEAT_SECONDS (600): the connection idles while waiting.
+    delay_seconds: float = Field(default=5, ge=0)
+    queues: list[str] = [ARTICLES_TO_CRAWL]
+
+    @field_validator("timezone")
+    @classmethod
+    def _validate_timezone(cls, timezone: str) -> str:
+        return validate_timezone(timezone)
+
+
+def load_redriver_config(path: Path) -> RedriverConfig:
+    return RedriverConfig.model_validate(yaml.safe_load(path.read_text()) or {})
