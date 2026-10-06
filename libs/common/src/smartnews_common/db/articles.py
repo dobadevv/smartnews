@@ -21,3 +21,14 @@ class ArticleStore:
             thumbnail=article.thumbnail,
             category=article.category,
         )
+
+    def list_untransformed(
+        self, min_age_minutes: int, limit: int
+    ) -> list[queries.ListUntransformedArticlesRow]:
+        """Return up to `limit` articles at least `min_age_minutes` old whose
+        title and summary were never translated, oldest first."""
+        return list(
+            self._querier.list_untransformed_articles(
+                min_age_minutes=min_age_minutes, max_rows=limit
+            )
+        )
