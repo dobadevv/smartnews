@@ -17,7 +17,7 @@ def run_hourly(
     now = clock or (lambda: datetime.now(zone))
     while not stop_requested.is_set():
         current = now()
-        wait_seconds = _seconds_between(current, _next_top_of_hour(current))
+        wait_seconds = _seconds_between(start=current, end=_next_top_of_hour(current))
         if stop_requested.wait(wait_seconds):
             return
         try:

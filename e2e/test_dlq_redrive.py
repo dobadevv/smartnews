@@ -93,9 +93,9 @@ def test_a_dead_lettered_crawl_goes_back_to_the_crawler_only_as_a_first_attempt(
     message_count: Callable[[str], int],
 ) -> None:
     body = fetched_body(1)
-    dead_letter(rabbitmq_channel, CRAWL_DEAD_LETTER_QUEUE, body)
+    dead_letter(channel=rabbitmq_channel, queue=CRAWL_DEAD_LETTER_QUEUE, body=body)
 
-    redrive(rabbitmq_url, [ARTICLES_TO_CRAWL])
+    redrive(rabbitmq_url=rabbitmq_url, queues=[ARTICLES_TO_CRAWL])
 
     _, properties, received = wait_for_message(ARTICLES_TO_CRAWL)
     assert received == body
@@ -112,9 +112,9 @@ def test_redrive_keeps_the_dead_letter_order_with_a_delay_between_messages(
 ) -> None:
     bodies = [fetched_body(1), fetched_body(2)]
     for body in bodies:
-        dead_letter(rabbitmq_channel, CRAWL_DEAD_LETTER_QUEUE, body)
+        dead_letter(channel=rabbitmq_channel, queue=CRAWL_DEAD_LETTER_QUEUE, body=body)
 
-    redrive(rabbitmq_url, [ARTICLES_TO_CRAWL], delay_seconds=0.05)
+    redrive(rabbitmq_url=rabbitmq_url, queues=[ARTICLES_TO_CRAWL], delay_seconds=0.05)
 
     received = [wait_for_message(ARTICLES_TO_CRAWL)[2] for _ in bodies]
     assert received == bodies
@@ -127,9 +127,12 @@ def test_a_missing_dead_letter_queue_is_skipped_and_the_next_queue_redriven(
     wait_for_message: Callable[..., tuple],
 ) -> None:
     body = fetched_body(1)
-    dead_letter(rabbitmq_channel, CRAWL_DEAD_LETTER_QUEUE, body)
+    dead_letter(channel=rabbitmq_channel, queue=CRAWL_DEAD_LETTER_QUEUE, body=body)
 
-    redrive(rabbitmq_url, [f"missing.{uuid.uuid4().hex}", ARTICLES_TO_CRAWL])
+    redrive(
+        rabbitmq_url=rabbitmq_url,
+        queues=[f"missing.{uuid.uuid4().hex}", ARTICLES_TO_CRAWL],
+    )
 
     assert wait_for_message(ARTICLES_TO_CRAWL)[2] == body
 
@@ -142,8 +145,12 @@ def test_a_message_whose_main_queue_is_missing_stays_in_the_dead_letter_queue(
 ) -> None:
     orphan_dead_letter_queue = dead_letter_queue_name(unique_queue)
     rabbitmq_channel.queue_declare(orphan_dead_letter_queue, durable=True)
-    dead_letter(rabbitmq_channel, orphan_dead_letter_queue, fetched_body(1))
+    dead_letter(
+        channel=rabbitmq_channel,
+        queue=orphan_dead_letter_queue,
+        body=fetched_body(1),
+    )
 
-    redrive(rabbitmq_url, [unique_queue])
+    redrive(rabbitmq_url=rabbitmq_url, queues=[unique_queue])
 
     assert message_count(orphan_dead_letter_queue) == 1

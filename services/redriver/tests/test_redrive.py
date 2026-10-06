@@ -218,7 +218,7 @@ def test_redrive_queue_waits_the_delay_between_messages(
     stop_requested = RecordingStopEvent()
 
     result = redrive(
-        channel, delay_seconds=delay_seconds, stop_requested=stop_requested
+        channel=channel, delay_seconds=delay_seconds, stop_requested=stop_requested
     )
 
     assert result.redriven == message_count
@@ -310,7 +310,7 @@ def test_redrive_queue_stops_when_stop_is_requested_during_a_delay() -> None:
     channel = FakeChannel(dead_letters={DEAD_LETTER_QUEUE: dead_letters(3)})
     stop_requested = RecordingStopEvent(stop_on_wait=1)
 
-    result = redrive(channel, delay_seconds=5, stop_requested=stop_requested)
+    result = redrive(channel=channel, delay_seconds=5, stop_requested=stop_requested)
 
     assert result == RedriveResult(snapshot_count=3, redriven=1)
     assert channel.calls_named("basic_ack") == [1]
@@ -322,7 +322,7 @@ def test_redrive_queue_without_a_delay_still_stops_between_messages() -> None:
     stop_requested = RecordingStopEvent()
     stop_requested.set()
 
-    result = redrive(channel, delay_seconds=0, stop_requested=stop_requested)
+    result = redrive(channel=channel, delay_seconds=0, stop_requested=stop_requested)
 
     assert result == RedriveResult(snapshot_count=3, redriven=1)
     assert stop_requested.waits == []
@@ -470,7 +470,9 @@ def test_run_redrive_pass_does_not_start_the_next_queue_after_a_stop_request(
     connect_to(connection)
 
     run_pass(
-        ["a", "b"], delay_seconds=5, stop_requested=RecordingStopEvent(stop_on_wait=1)
+        queues=["a", "b"],
+        delay_seconds=5,
+        stop_requested=RecordingStopEvent(stop_on_wait=1),
     )
 
     assert [message.routing_key for message in channel.published] == ["a"]

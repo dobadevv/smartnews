@@ -15,8 +15,8 @@ def write_config(tmp_path: Path, content: str) -> Path:
 
 def test_load_redriver_config_parses_every_field(tmp_path: Path) -> None:
     path = write_config(
-        tmp_path,
-        """
+        tmp_path=tmp_path,
+        content="""
 timezone: Asia/Kolkata
 run_once: true
 delay_seconds: 2.5
@@ -50,7 +50,7 @@ def test_redriver_config_defaults_to_hourly_crawl_redrive_in_ho_chi_minh() -> No
 def test_load_redriver_config_uses_the_defaults_for_an_empty_file(
     tmp_path: Path,
 ) -> None:
-    config = load_redriver_config(write_config(tmp_path, ""))
+    config = load_redriver_config(write_config(tmp_path=tmp_path, content=""))
 
     assert config == RedriverConfig()
 
