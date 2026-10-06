@@ -25,9 +25,9 @@ news reader over HTTP.
 
 ## Architecture
 
-Six services in one uv workspace. Five share one Postgres database; the four
-pipeline services and the redriver talk over RabbitMQ (the redriver uses
-RabbitMQ only, no database):
+Six services in one uv workspace. All six share one Postgres database (the
+redriver only reads it); the four pipeline services and the redriver talk
+over RabbitMQ:
 
 ```
                        ┌──► [articles.fetched] ──► transformer ──► [articles.transformed] ──► notifier
@@ -35,6 +35,7 @@ fetcher ──► (fan-out) ─┤
                        └──► [articles.crawl] ──► crawler ──► [articles.crawled] (no consumer yet)
 
 [articles.crawl.dlq] ──(hourly)──► redriver ──(default exchange)──► [articles.crawl]
+articles (untranslated) ──(hourly)──► redriver ──(default exchange)──► [articles.fetched]
 ```
 
 - **fetcher-service** (`services/fetcher`) — long-running loop that runs
@@ -88,7 +89,17 @@ fetcher ──► (fan-out) ─┤
   after the broker confirmed its republish. Redrives are unlimited: a
   permanently broken URL cycles DLQ → crawl → retries → DLQ every hour.
   Only `articles.crawl` is configured. It never declares queues; a missing
-  DLQ is logged and skipped. No database.
+  DLQ is logged and skipped.
+  A second, independent job, **retransform** (own thread, same hourly
+  schedule, on unless `retransform.enabled: false`), selects up to
+  `max_messages_per_run` articles at least `retransform.min_age_minutes` old
+  whose title and summary were never translated (no
+  `article_transformations` row, or one holding only content), oldest
+  first, and republishes each as `ArticleFetched` to `articles.fetched`
+  through the default exchange (so it is not re-crawled), `delay_seconds`
+  apart. It only reads the database. An article that never translates is
+  republished every hour; channels that already received it are skipped by
+  the notifier.
 - **smartnews_common** (`libs/common`) — `Article`/`Transformation` model,
   `article_key()` dedup hash, Pydantic message contracts, pika topology /
   publisher / consumer, SQLAlchemy engine, sqlc-generated queries and thin
@@ -123,12 +134,14 @@ One file per service under `config/`: `fetcher.yaml`
 (`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`),
 `api.yaml` (`cors_allowed_origins`, `default_page_size`, `max_page_size`),
 `redriver.yaml` (`timezone`, `run_once`, `delay_seconds`,
-`max_messages_per_run`, `queues`).
-Credentials come only from env: `DATABASE_URL` for all services but the
-redriver, `RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
+`max_messages_per_run`, `queues`, `retransform.enabled`,
+`retransform.min_age_minutes`).
+Credentials come only from env: `DATABASE_URL` for all services (the
+redriver only while `retransform.enabled` is true), `RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
 `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` for
 notifier. The crawler, api and redriver need no API key; the redriver
-needs only `RABBITMQ_URL`. See `services/*/.env.example`.
+needs only `RABBITMQ_URL`, plus `DATABASE_URL` for retransform. See
+`services/*/.env.example`.
 
 ## Commands
 

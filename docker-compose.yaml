@@ -114,12 +114,11 @@ services:
         UV_SYNC_ARGS: --no-dev --package smartnews-redriver
     command: ["smartnews-redriver"]
     environment:
+      DATABASE_URL: *database-url
       RABBITMQ_URL: *rabbitmq-url
     volumes:
       - ./config:/app/config:ro
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+    depends_on: *service-dependencies
     restart: unless-stopped
 
   api:
