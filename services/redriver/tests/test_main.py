@@ -71,7 +71,12 @@ def test_start_enters_the_hourly_schedule_when_run_once_is_false(
     )
 
     assert run_hourly_calls == [
-        {"redrive_pass": redrive_pass, "zone": zone, "stop_requested": stop_requested}
+        {
+            "run_pass": redrive_pass,
+            "job_name": "redrive",
+            "zone": zone,
+            "stop_requested": stop_requested,
+        }
     ]
     assert redrive_pass.calls == 0
 

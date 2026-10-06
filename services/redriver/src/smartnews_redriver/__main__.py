@@ -60,7 +60,12 @@ def _start(
     if config.run_once:
         redrive_pass()
         return
-    run_hourly(redrive_pass=redrive_pass, zone=zone, stop_requested=stop_requested)
+    run_hourly(
+        run_pass=redrive_pass,
+        job_name="redrive",
+        zone=zone,
+        stop_requested=stop_requested,
+    )
 
 
 if __name__ == "__main__":

@@ -104,7 +104,8 @@ def test_run_hourly_waits_the_real_seconds_until_the_next_top_of_the_hour(
     passes: list[None] = []
 
     run_hourly(
-        redrive_pass=lambda: passes.append(None),
+        run_pass=lambda: passes.append(None),
+        job_name="redrive",
         zone=zone,
         stop_requested=stop_requested,
         clock=clock_reading(current),
@@ -127,7 +128,8 @@ def test_run_hourly_logs_a_failing_pass_and_runs_again_next_hour(
 
     with caplog.at_level(logging.ERROR):
         run_hourly(
-            redrive_pass=redrive_pass,
+            run_pass=redrive_pass,
+            job_name="redrive",
             zone=HO_CHI_MINH,
             stop_requested=stop_requested,
             clock=clock_reading(
@@ -144,7 +146,8 @@ def test_run_hourly_recomputes_the_next_run_after_an_overrunning_pass() -> None:
     passes: list[None] = []
 
     run_hourly(
-        redrive_pass=lambda: passes.append(None),
+        run_pass=lambda: passes.append(None),
+        job_name="redrive",
         zone=HO_CHI_MINH,
         stop_requested=stop_requested,
         clock=clock_reading(
@@ -163,7 +166,8 @@ def test_run_hourly_does_nothing_when_stop_was_already_requested() -> None:
     passes: list[None] = []
 
     run_hourly(
-        redrive_pass=lambda: passes.append(None),
+        run_pass=lambda: passes.append(None),
+        job_name="redrive",
         zone=HO_CHI_MINH,
         stop_requested=stop_requested,
     )
@@ -179,7 +183,8 @@ def test_run_hourly_returns_promptly_when_stopped_during_the_wait() -> None:
 
     def run() -> None:
         run_hourly(
-            redrive_pass=lambda: passes.append(None),
+            run_pass=lambda: passes.append(None),
+            job_name="redrive",
             zone=HO_CHI_MINH,
             stop_requested=stop_requested,
             clock=lambda: datetime(2026, 10, 6, 2, 0, tzinfo=HO_CHI_MINH),
@@ -192,3 +197,28 @@ def test_run_hourly_returns_promptly_when_stopped_during_the_wait() -> None:
 
     assert finished.wait(timeout=5)
     assert passes == []
+
+
+def test_run_hourly_names_the_job_when_a_pass_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    stop_requested = RecordingStopEvent(stop_on_wait=2)
+
+    def failing_pass() -> None:
+        raise ConnectionError("database down")
+
+    with caplog.at_level(logging.ERROR):
+        run_hourly(
+            run_pass=failing_pass,
+            job_name="retransform",
+            zone=HO_CHI_MINH,
+            stop_requested=stop_requested,
+            clock=clock_reading(
+                *[datetime(2026, 10, 6, 2, 30, tzinfo=HO_CHI_MINH)] * 2
+            ),
+        )
+
+    assert (
+        "retransform pass failed; will retry at the next top of the hour"
+        in caplog.text
+    )

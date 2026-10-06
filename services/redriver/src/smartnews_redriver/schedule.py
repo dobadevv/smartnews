@@ -8,10 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 def run_hourly(
-    redrive_pass: Callable[[], None],
+    run_pass: Callable[[], None],
     zone: ZoneInfo,
     stop_requested: threading.Event,
     *,
+    job_name: str,
     clock: Callable[[], datetime] | None = None,
 ) -> None:
     now = clock or (lambda: datetime.now(zone))
@@ -21,10 +22,10 @@ def run_hourly(
         if stop_requested.wait(wait_seconds):
             return
         try:
-            redrive_pass()
+            run_pass()
         except Exception:
             logger.exception(
-                "redrive pass failed; will retry at the next top of the hour"
+                "%s pass failed; will retry at the next top of the hour", job_name
             )
 
 
