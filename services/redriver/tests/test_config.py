@@ -85,6 +85,6 @@ def test_redriver_config_rejects_invalid_values(overrides: dict[str, object]) ->
 def test_the_repository_redriver_config_loads() -> None:
     config = load_redriver_config(REPO_CONFIG)
 
-    assert config.queues == ["articles.crawl"]
+    assert config.queues == ["articles.crawled"]
     assert config.run_once is False
     assert config.max_messages_per_run == 10
