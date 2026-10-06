@@ -9,13 +9,10 @@ from smartnews_common.messaging.connection import (
     connection_parameters,
     open_confirmed_channel,
 )
-from smartnews_common.messaging.publisher import ATTEMPT_HEADER, FIRST_ATTEMPT
 from smartnews_common.messaging.topology import dead_letter_queue_name
 
-# The default exchange routes to exactly the queue named by the routing key.
-# The `smartnews` exchange would either drop the message as unroutable or fan
-# it out to the transformer's queue as well.
-DEFAULT_EXCHANGE = ""
+from smartnews_redriver.republish import republish_to_queue, stopped_while_pausing
+
 NOT_FOUND = 404
 
 logger = logging.getLogger(__name__)
@@ -72,7 +69,7 @@ def redrive_queue(
     ).method.message_count
     redriven = 0
     for position in range(min(snapshot_count, max_messages_per_run)):
-        if position > 0 and _stopped_while_pausing(
+        if position > 0 and stopped_while_pausing(
             stop_requested=stop_requested, delay_seconds=delay_seconds
         ):
             break
@@ -82,7 +79,7 @@ def redrive_queue(
         if method is None:
             break
         try:
-            _republish(channel=channel, queue=queue, body=body or b"")
+            republish_to_queue(channel=channel, queue=queue, body=body or b"")
         except AMQPChannelError:
             logger.exception(
                 "failed to redrive a message from %s; aborting this queue",
@@ -128,27 +125,4 @@ def _redrive_and_report(
         dead_letter_queue,
         queue,
         max_messages_per_run,
-    )
-
-
-def _stopped_while_pausing(
-    stop_requested: threading.Event, delay_seconds: float
-) -> bool:
-    if delay_seconds == 0:
-        return stop_requested.is_set()
-    return stop_requested.wait(delay_seconds)
-
-
-def _republish(channel: BlockingChannel, queue: str, body: bytes) -> None:
-    channel.basic_publish(
-        exchange=DEFAULT_EXCHANGE,
-        routing_key=queue,
-        body=body,
-        properties=pika.BasicProperties(
-            content_type="application/json",
-            delivery_mode=pika.DeliveryMode.Persistent,
-            headers={ATTEMPT_HEADER: FIRST_ATTEMPT},
-        ),
-        # With confirms on, an unroutable message raises instead of vanishing.
-        mandatory=True,
     )
