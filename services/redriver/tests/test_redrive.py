@@ -161,12 +161,14 @@ def redrive(
     channel: FakeChannel,
     delay_seconds: float = 0,
     stop_requested: threading.Event | None = None,
+    max_messages_per_run: int = 100,
 ) -> RedriveResult:
     return redrive_queue(
         channel=as_channel(channel),
         queue=MAIN_QUEUE,
         delay_seconds=delay_seconds,
         stop_requested=stop_requested or RecordingStopEvent(),
+        max_messages_per_run=max_messages_per_run,
     )
 
 
@@ -180,6 +182,23 @@ def test_redrive_queue_redrives_at_most_the_snapshot_count() -> None:
 
     assert result == RedriveResult(snapshot_count=2, redriven=2)
     assert len(channel.calls_named("basic_get")) == 2
+
+
+def test_redrive_queue_redrives_at_most_the_per_run_limit() -> None:
+    channel = FakeChannel(dead_letters={DEAD_LETTER_QUEUE: dead_letters(5)})
+    stop_requested = RecordingStopEvent()
+
+    result = redrive(
+        channel=channel,
+        delay_seconds=5,
+        stop_requested=stop_requested,
+        max_messages_per_run=3,
+    )
+
+    assert result == RedriveResult(snapshot_count=5, redriven=3)
+    assert len(channel.calls_named("basic_get")) == 3
+    assert channel.calls_named("basic_ack") == [1, 2, 3]
+    assert stop_requested.waits == [5, 5]
 
 
 def test_redrive_queue_stops_when_the_dead_letter_queue_runs_dry() -> None:
@@ -364,12 +383,14 @@ def run_pass(
     queues: list[str],
     delay_seconds: float = 0,
     stop_requested: threading.Event | None = None,
+    max_messages_per_run: int = 100,
 ) -> None:
     run_redrive_pass(
         rabbitmq_url="amqp://unused",
         queues=queues,
         delay_seconds=delay_seconds,
         stop_requested=stop_requested or RecordingStopEvent(),
+        max_messages_per_run=max_messages_per_run,
     )
 
 
@@ -391,6 +412,27 @@ def test_run_redrive_pass_redrives_every_queue_in_order_and_closes_the_connectio
     assert connection.opened == [channel]
     assert channel.calls[0] == ("confirm_delivery", None)
     assert connection.close_calls == 1
+
+
+def test_run_redrive_pass_applies_the_per_run_limit_to_each_queue(
+    connect_to: ConnectTo, caplog: pytest.LogCaptureFixture
+) -> None:
+    channel = FakeChannel(
+        dead_letters={"a.dlq": dead_letters(3), "b.dlq": dead_letters(3)}
+    )
+    connect_to(FakeConnection([channel]))
+
+    with caplog.at_level(logging.INFO):
+        run_pass(queues=["a", "b"], max_messages_per_run=2)
+
+    assert [message.routing_key for message in channel.published] == [
+        "a",
+        "a",
+        "b",
+        "b",
+    ]
+    assert "redrove 2 of 3 message(s) from a.dlq to a (limit 2)" in caplog.text
+    assert "redrove 2 of 3 message(s) from b.dlq to b (limit 2)" in caplog.text
 
 
 def test_run_redrive_pass_moves_on_to_the_next_queue_after_a_publish_failure(

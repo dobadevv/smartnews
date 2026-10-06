@@ -32,6 +32,7 @@ def run_redrive_pass(
     queues: list[str],
     delay_seconds: float,
     stop_requested: threading.Event,
+    max_messages_per_run: int,
 ) -> None:
     if not queues:
         return
@@ -48,6 +49,7 @@ def run_redrive_pass(
                 queue=queue,
                 delay_seconds=delay_seconds,
                 stop_requested=stop_requested,
+                max_messages_per_run=max_messages_per_run,
             )
     finally:
         # Closing hands unacked messages back to their DLQ. A connection the
@@ -62,13 +64,14 @@ def redrive_queue(
     queue: str,
     delay_seconds: float,
     stop_requested: threading.Event,
+    max_messages_per_run: int,
 ) -> RedriveResult:
     dead_letter_queue = dead_letter_queue_name(queue)
     snapshot_count = channel.queue_declare(
         queue=dead_letter_queue, passive=True
     ).method.message_count
     redriven = 0
-    for position in range(snapshot_count):
+    for position in range(min(snapshot_count, max_messages_per_run)):
         if position > 0 and _stopped_while_pausing(
             stop_requested=stop_requested, delay_seconds=delay_seconds
         ):
@@ -102,6 +105,7 @@ def _redrive_and_report(
     queue: str,
     delay_seconds: float,
     stop_requested: threading.Event,
+    max_messages_per_run: int,
 ) -> None:
     dead_letter_queue = dead_letter_queue_name(queue)
     try:
@@ -110,6 +114,7 @@ def _redrive_and_report(
             queue=queue,
             delay_seconds=delay_seconds,
             stop_requested=stop_requested,
+            max_messages_per_run=max_messages_per_run,
         )
     except ChannelClosedByBroker as error:
         if error.reply_code != NOT_FOUND:
@@ -117,11 +122,12 @@ def _redrive_and_report(
         logger.warning("%s does not exist; skipping", dead_letter_queue)
         return
     logger.info(
-        "redrove %d of %d message(s) from %s to %s",
+        "redrove %d of %d message(s) from %s to %s (limit %d)",
         result.redriven,
         result.snapshot_count,
         dead_letter_queue,
         queue,
+        max_messages_per_run,
     )
 
 

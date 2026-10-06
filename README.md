@@ -69,7 +69,8 @@ fetcher ──► (fan-out) ─┤
    the requested language.
 6. **redriver** moves crawl messages that used up their retries from
    `articles.crawl.dlq` back to `articles.crawl` at the top of every hour,
-   one at a time with a short delay, so sites that rate-limited or timed out
+   one at a time with a short delay and at most `max_messages_per_run` per
+   hour, so sites that rate-limited or timed out
    get another try later. Only the crawler sees them again.
 
 Failed steps are retried after 1, 5 and 15 minutes, then parked in a
@@ -90,7 +91,7 @@ Crawl messages in the dead-letter queue are redriven every hour.
 - `config/notifier.yaml` — which channels are enabled.
 - `config/crawler.yaml` — request timeout, user agent and per-source content selectors.
 - `config/api.yaml` — origins allowed by CORS and the default/maximum page size.
-- `config/redriver.yaml` — timezone, delay between redriven messages and which queues' dead-letter queues to redrive.
+- `config/redriver.yaml` — timezone, delay between redriven messages, how many messages to redrive per queue each hour, and which queues' dead-letter queues to redrive.
 - Secrets: copy `services/transformer/.env.example` and
   `services/notifier/.env.example` to `.env` next to them and fill in
   the keys for what you enabled.

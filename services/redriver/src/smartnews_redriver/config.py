@@ -11,6 +11,7 @@ class RedriverConfig(BaseModel):
     run_once: bool = False
     # Stay well below HEARTBEAT_SECONDS (600): the connection idles while waiting.
     delay_seconds: float = Field(default=5, ge=0)
+    max_messages_per_run: int = Field(default=10, ge=1)
     queues: list[str] = [ARTICLES_TO_CRAWL]
 
     @field_validator("timezone")

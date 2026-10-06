@@ -20,6 +20,7 @@ def test_load_redriver_config_parses_every_field(tmp_path: Path) -> None:
 timezone: Asia/Kolkata
 run_once: true
 delay_seconds: 2.5
+max_messages_per_run: 25
 queues:
   - articles.crawl
   - articles.fetched
@@ -32,6 +33,7 @@ queues:
         timezone="Asia/Kolkata",
         run_once=True,
         delay_seconds=2.5,
+        max_messages_per_run=25,
         queues=["articles.crawl", "articles.fetched"],
     )
 
@@ -39,10 +41,17 @@ queues:
 def test_redriver_config_defaults_to_hourly_crawl_redrive_in_ho_chi_minh() -> None:
     config = RedriverConfig()
 
-    assert (config.timezone, config.run_once, config.delay_seconds, config.queues) == (
+    assert (
+        config.timezone,
+        config.run_once,
+        config.delay_seconds,
+        config.max_messages_per_run,
+        config.queues,
+    ) == (
         "Asia/Ho_Chi_Minh",
         False,
         5,
+        10,
         ["articles.crawl"],
     )
 
@@ -64,6 +73,8 @@ def test_redriver_config_accepts_an_empty_queue_list() -> None:
     [
         pytest.param({"timezone": "Not/AZone"}, id="unknown-timezone"),
         pytest.param({"delay_seconds": -1}, id="negative-delay"),
+        pytest.param({"max_messages_per_run": 0}, id="zero-message-limit"),
+        pytest.param({"max_messages_per_run": -1}, id="negative-message-limit"),
     ],
 )
 def test_redriver_config_rejects_invalid_values(overrides: dict[str, object]) -> None:
@@ -76,3 +87,4 @@ def test_the_repository_redriver_config_loads() -> None:
 
     assert config.queues == ["articles.crawl"]
     assert config.run_once is False
+    assert config.max_messages_per_run == 10

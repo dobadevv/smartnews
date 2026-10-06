@@ -10,6 +10,10 @@ run_once: false
 # (the RabbitMQ heartbeat); the connection stays open but idle while waiting.
 delay_seconds: 5
 
+# Max messages redriven from each dead-letter queue per run; the rest wait
+# for the next hour.
+max_messages_per_run: 10
+
 # Main queues to redrive; each one's dead-letter queue is <queue>.dlq.
 queues:
-  - articles.crawl
+  - articles.crawled

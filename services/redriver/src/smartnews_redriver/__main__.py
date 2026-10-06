@@ -28,6 +28,7 @@ def main() -> None:
         queues=config.queues,
         delay_seconds=config.delay_seconds,
         stop_requested=stop_requested,
+        max_messages_per_run=config.max_messages_per_run,
     )
     call_on_shutdown_signals(stop_requested.set)
     if config.run_once:

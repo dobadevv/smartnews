@@ -80,12 +80,18 @@ def dead_letter(channel: BlockingChannel, queue: str, body: bytes) -> None:
     )
 
 
-def redrive(rabbitmq_url: str, queues: list[str], delay_seconds: float = 0) -> None:
+def redrive(
+    rabbitmq_url: str,
+    queues: list[str],
+    delay_seconds: float = 0,
+    max_messages_per_run: int = 100,
+) -> None:
     run_redrive_pass(
         rabbitmq_url=rabbitmq_url,
         queues=queues,
         delay_seconds=delay_seconds,
         stop_requested=threading.Event(),
+        max_messages_per_run=max_messages_per_run,
     )
 
 
@@ -122,6 +128,27 @@ def test_redrive_keeps_the_dead_letter_order_with_a_delay_between_messages(
 
     received = [wait_for_message(ARTICLES_TO_CRAWL)[2] for _ in bodies]
     assert received == bodies
+
+
+def test_redrive_leaves_messages_beyond_the_per_run_limit_in_the_dead_letter_queue(
+    rabbitmq_url: str,
+    rabbitmq_channel: BlockingChannel,
+    clean_crawl_queues: None,
+    wait_for_message: Callable[..., tuple],
+    message_count: Callable[[str], int],
+) -> None:
+    bodies = [fetched_body(1), fetched_body(2), fetched_body(3)]
+    for body in bodies:
+        dead_letter(channel=rabbitmq_channel, queue=CRAWL_DEAD_LETTER_QUEUE, body=body)
+
+    redrive(
+        rabbitmq_url=rabbitmq_url, queues=[ARTICLES_TO_CRAWL], max_messages_per_run=2
+    )
+
+    received = [wait_for_message(ARTICLES_TO_CRAWL)[2] for _ in range(2)]
+    assert received == bodies[:2]
+    assert message_count(ARTICLES_TO_CRAWL) == 0
+    assert message_count(CRAWL_DEAD_LETTER_QUEUE) == 1
 
 
 def test_a_missing_dead_letter_queue_is_skipped_and_the_next_queue_redriven(

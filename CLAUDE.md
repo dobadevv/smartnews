@@ -82,8 +82,9 @@ fetcher ──► (fan-out) ─┤
   `<queue>.dlq` back to `<queue>` through the default exchange (so a
   redriven crawl reaches only the crawler, never the transformer), with
   `x-attempt` reset to 1 so it gets the full retry ladder again. Each pass
-  redrives at most the DLQ depth seen when it started, one message at a
-  time with `delay_seconds` between messages, and acks a DLQ message only
+  redrives at most the DLQ depth seen when it started, capped at
+  `max_messages_per_run` per DLQ (the rest wait for the next hour), one
+  message at a time with `delay_seconds` between messages, and acks a DLQ message only
   after the broker confirmed its republish. Redrives are unlimited: a
   permanently broken URL cycles DLQ → crawl → retries → DLQ every hour.
   Only `articles.crawl` is configured. It never declares queues; a missing
@@ -120,7 +121,8 @@ One file per service under `config/`: `fetcher.yaml`
 `notifier.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
 (`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`),
 `api.yaml` (`cors_allowed_origins`, `default_page_size`, `max_page_size`),
-`redriver.yaml` (`timezone`, `run_once`, `delay_seconds`, `queues`).
+`redriver.yaml` (`timezone`, `run_once`, `delay_seconds`,
+`max_messages_per_run`, `queues`).
 Credentials come only from env: `DATABASE_URL` for all services but the
 redriver, `RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
 `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` for

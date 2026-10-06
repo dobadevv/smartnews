@@ -74,3 +74,34 @@ def test_start_enters_the_hourly_schedule_when_run_once_is_false(
         {"redrive_pass": redrive_pass, "zone": zone, "stop_requested": stop_requested}
     ]
     assert redrive_pass.calls == 0
+
+
+def test_main_redrives_with_the_configured_queues_delay_and_message_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = RedriverConfig(
+        run_once=True, delay_seconds=2, max_messages_per_run=7, queues=["a"]
+    )
+    pass_arguments: list[dict[str, object]] = []
+    monkeypatch.setattr(main_module, "load_redriver_config", lambda path: config)
+    monkeypatch.setattr(main_module, "require_env", lambda name: "amqp://test")
+    monkeypatch.setattr(main_module, "call_on_shutdown_signals", lambda handler: None)
+    monkeypatch.setattr(
+        main_module,
+        "run_redrive_pass",
+        lambda **arguments: pass_arguments.append(arguments),
+    )
+
+    main_module.main()
+
+    assert len(pass_arguments) == 1
+    assert {
+        name: value
+        for name, value in pass_arguments[0].items()
+        if name != "stop_requested"
+    } == {
+        "rabbitmq_url": "amqp://test",
+        "queues": ["a"],
+        "delay_seconds": 2,
+        "max_messages_per_run": 7,
+    }
