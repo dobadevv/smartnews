@@ -25,13 +25,16 @@ news reader over HTTP.
 
 ## Architecture
 
-Five services in one uv workspace sharing one Postgres database; the four
-pipeline services talk over RabbitMQ:
+Six services in one uv workspace. Five share one Postgres database; the four
+pipeline services and the redriver talk over RabbitMQ (the redriver uses
+RabbitMQ only, no database):
 
 ```
                        ┌──► [articles.fetched] ──► transformer ──► [articles.transformed] ──► notifier
 fetcher ──► (fan-out) ─┤
                        └──► [articles.crawl] ──► crawler ──► [articles.crawled] (no consumer yet)
+
+[articles.crawl.dlq] ──(hourly)──► redriver ──(default exchange)──► [articles.crawl]
 ```
 
 - **fetcher-service** (`services/fetcher`) — long-running loop that runs
@@ -74,6 +77,17 @@ fetcher ──► (fan-out) ─┤
   side; `language.py` picks the requested one. An article appears only when
   its title, summary, content and thumbnail exist in that language (the
   list checks content too but does not return it). No RabbitMQ.
+- **redriver-service** (`services/redriver`) — long-running loop that, at
+  the top of every hour in its `timezone`, moves each configured
+  `<queue>.dlq` back to `<queue>` through the default exchange (so a
+  redriven crawl reaches only the crawler, never the transformer), with
+  `x-attempt` reset to 1 so it gets the full retry ladder again. Each pass
+  redrives at most the DLQ depth seen when it started, one message at a
+  time with `delay_seconds` between messages, and acks a DLQ message only
+  after the broker confirmed its republish. Redrives are unlimited: a
+  permanently broken URL cycles DLQ → crawl → retries → DLQ every hour.
+  Only `articles.crawl` is configured. It never declares queues; a missing
+  DLQ is logged and skipped. No database.
 - **smartnews_common** (`libs/common`) — `Article`/`Transformation` model,
   `article_key()` dedup hash, Pydantic message contracts, pika topology /
   publisher / consumer, SQLAlchemy engine, sqlc-generated queries and thin
@@ -81,7 +95,9 @@ fetcher ──► (fan-out) ─┤
 
 Failures in a consumer go through `<queue>.retry.1m` → `5m` → `15m`
 (TTL queues that dead-letter back to the main queue), then `<queue>.dlq`.
-The attempt number travels in the `x-attempt` header.
+The attempt number travels in the `x-attempt` header. The redriver drains
+the configured DLQs (today only `articles.crawl.dlq`) back into their main
+queue every hour.
 
 ## Database
 
@@ -103,11 +119,13 @@ One file per service under `config/`: `fetcher.yaml`
 (`summary` and `content`, each with `enabled`, `provider`, `model`),
 `notifier.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
 (`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`),
-`api.yaml` (`cors_allowed_origins`, `default_page_size`, `max_page_size`).
-Credentials come only from env: `DATABASE_URL` for all services,
-`RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
+`api.yaml` (`cors_allowed_origins`, `default_page_size`, `max_page_size`),
+`redriver.yaml` (`timezone`, `run_once`, `delay_seconds`, `queues`).
+Credentials come only from env: `DATABASE_URL` for all services but the
+redriver, `RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
 `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` for
-notifier. The crawler and api need no API key. See `services/*/.env.example`.
+notifier. The crawler, api and redriver need no API key; the redriver
+needs only `RABBITMQ_URL`. See `services/*/.env.example`.
 
 ## Commands
 

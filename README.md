@@ -45,6 +45,8 @@ that item, never the rest of the run.
                        ┌──► [articles.fetched] ──► transformer ──► [articles.transformed] ──► notifier
 fetcher ──► (fan-out) ─┤
                        └──► [articles.crawl] ──► crawler ──► [articles.crawled]
+
+[articles.crawl.dlq] ──(hourly)──► redriver ──► [articles.crawl]
 ```
 
 1. **fetcher** fetches every enabled feed once a day at a fixed local time,
@@ -65,9 +67,14 @@ fetcher ──► (fan-out) ─┤
    by `category` and `source`) and `GET /articles/<id>?lang=vi`. An article
    is listed only once its title, summary, content and thumbnail exist in
    the requested language.
+6. **redriver** moves crawl messages that used up their retries from
+   `articles.crawl.dlq` back to `articles.crawl` at the top of every hour,
+   one at a time with a short delay, so sites that rate-limited or timed out
+   get another try later. Only the crawler sees them again.
 
 Failed steps are retried after 1, 5 and 15 minutes, then parked in a
 dead-letter queue visible in the RabbitMQ UI (http://localhost:15672).
+Crawl messages in the dead-letter queue are redriven every hour.
 
 ## Usage
 
@@ -83,6 +90,7 @@ dead-letter queue visible in the RabbitMQ UI (http://localhost:15672).
 - `config/notifier.yaml` — which channels are enabled.
 - `config/crawler.yaml` — request timeout, user agent and per-source content selectors.
 - `config/api.yaml` — origins allowed by CORS and the default/maximum page size.
+- `config/redriver.yaml` — timezone, delay between redriven messages and which queues' dead-letter queues to redrive.
 - Secrets: copy `services/transformer/.env.example` and
   `services/notifier/.env.example` to `.env` next to them and fill in
   the keys for what you enabled.
@@ -91,7 +99,7 @@ dead-letter queue visible in the RabbitMQ UI (http://localhost:15672).
 
 ```bash
 docker compose up -d --build
-docker compose logs -f fetcher transformer notifier crawler
+docker compose logs -f fetcher transformer notifier crawler redriver
 ```
 
 Migrations run automatically before the services start. The API listens on
