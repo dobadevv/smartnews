@@ -30,6 +30,7 @@ addopts = "--import-mode=importlib"
 [dependency-groups]
 dev = [
     "alembic>=1.20.0",
+    "basedpyright>=1.40.2",
     "ipython>=9.17.1",
     "pytest>=9.1.1",
     "pytest-httpserver>=1.1.5",
@@ -50,3 +51,8 @@ migrate = [
 
 [tool.ruff]
 extend-exclude = ["libs/common/src/smartnews_common/db/generated"]
+
+[tool.basedpyright]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
