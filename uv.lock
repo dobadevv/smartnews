@@ -1841,6 +1841,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "smartnews-common" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
@@ -1849,6 +1850,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "smartnews-common", editable = "libs/common" },
+    { name = "sqlalchemy", specifier = ">=2.1.1" },
 ]
 
 [[package]]
