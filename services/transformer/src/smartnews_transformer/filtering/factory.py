@@ -9,12 +9,25 @@ from smartnews_transformer.filtering.gemini import (
 )
 from smartnews_transformer.filtering.groq import GroqContentTranslator, GroqFilter
 from smartnews_transformer.filtering.passthrough import PassthroughFilter
+from smartnews_transformer.filtering.throttle import (
+    Throttle,
+    ThrottledContentTranslator,
+    ThrottledFilter,
+)
 
 
 def build_filter(config: LlmStepConfig) -> Filter:
     if not config.enabled:
         return PassthroughFilter()
+    article_filter = _build_provider_filter(config)
+    if config.delay_seconds == 0:
+        return article_filter
+    return ThrottledFilter(
+        article_filter=article_filter, throttle=Throttle(config.delay_seconds)
+    )
 
+
+def _build_provider_filter(config: LlmStepConfig) -> Filter:
     match config.provider:
         case "gemini":
             return GeminiFilter(
@@ -31,7 +44,15 @@ def build_filter(config: LlmStepConfig) -> Filter:
 def build_content_translator(config: LlmStepConfig) -> ContentTranslator | None:
     if not config.enabled:
         return None
+    translator = _build_provider_content_translator(config)
+    if config.delay_seconds == 0:
+        return translator
+    return ThrottledContentTranslator(
+        translator=translator, throttle=Throttle(config.delay_seconds)
+    )
 
+
+def _build_provider_content_translator(config: LlmStepConfig) -> ContentTranslator:
     match config.provider:
         case "gemini":
             return GeminiContentTranslator(

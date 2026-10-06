@@ -67,3 +67,30 @@ def test_load_transformation_config_rejects_a_misspelled_step_option(
 
     with pytest.raises(ValidationError, match="provder"):
         load_transformation_config(path)
+
+
+def test_load_transformation_config_parses_a_per_step_delay(tmp_path: Path) -> None:
+    path = write_config(
+        tmp_path,
+        "summary:\n  enabled: true\n  delay_seconds: 4\n"
+        "content:\n  enabled: true\n  delay_seconds: 2.5\n",
+    )
+
+    config = load_transformation_config(path)
+
+    assert config.summary.delay_seconds == 4
+    assert config.content.delay_seconds == 2.5
+
+
+def test_load_transformation_config_defaults_the_delay_to_zero(tmp_path: Path) -> None:
+    config = load_transformation_config(write_config(tmp_path, ""))
+
+    assert config.summary.delay_seconds == 0
+    assert config.content.delay_seconds == 0
+
+
+def test_load_transformation_config_rejects_a_negative_delay(tmp_path: Path) -> None:
+    path = write_config(tmp_path, "summary:\n  delay_seconds: -1\n")
+
+    with pytest.raises(ValidationError, match="delay_seconds"):
+        load_transformation_config(path)

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LlmStepConfig(BaseModel):
@@ -12,6 +12,7 @@ class LlmStepConfig(BaseModel):
     enabled: bool = False
     provider: str = "gemini"
     model: str | None = None
+    delay_seconds: float = Field(default=0, ge=0)
 
 
 class TransformationConfig(BaseModel):

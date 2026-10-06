@@ -12,6 +12,10 @@ from smartnews_transformer.filtering.gemini import (
 from smartnews_transformer.filtering.groq import DEFAULT_MODEL as GROQ_DEFAULT_MODEL
 from smartnews_transformer.filtering.groq import GroqContentTranslator, GroqFilter
 from smartnews_transformer.filtering.passthrough import PassthroughFilter
+from smartnews_transformer.filtering.throttle import (
+    ThrottledContentTranslator,
+    ThrottledFilter,
+)
 
 
 def test_build_filter_returns_passthrough_when_disabled() -> None:
@@ -168,3 +172,35 @@ def test_each_step_only_requires_the_api_key_of_its_own_provider(
     assert isinstance(translator, GroqContentTranslator)
     with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
         build_filter(LlmStepConfig(enabled=True, provider="gemini"))
+
+
+def test_build_filter_throttles_the_provider_when_a_delay_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-key")
+
+    result = build_filter(LlmStepConfig(enabled=True, delay_seconds=3))
+
+    assert isinstance(result, ThrottledFilter)
+    assert isinstance(result._filter, GeminiFilter)
+    assert result._throttle._delay_seconds == 3
+
+
+def test_build_filter_does_not_throttle_a_disabled_step() -> None:
+    result = build_filter(LlmStepConfig(enabled=False, delay_seconds=3))
+
+    assert isinstance(result, PassthroughFilter)
+
+
+def test_build_content_translator_throttles_the_provider_when_a_delay_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "fake-key")
+
+    result = build_content_translator(
+        LlmStepConfig(enabled=True, provider="groq", delay_seconds=2)
+    )
+
+    assert isinstance(result, ThrottledContentTranslator)
+    assert isinstance(result._translator, GroqContentTranslator)
+    assert result._throttle._delay_seconds == 2
