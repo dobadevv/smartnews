@@ -1,16 +1,20 @@
+import logging
 import threading
 from collections.abc import Callable
 from datetime import timedelta
-from typing import TypedDict, Unpack
+from typing import TypedDict, Unpack, cast
 
+import pika
 import pytest
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic
 from pydantic import BaseModel
+from smartnews_common.messages import ArticleFetched
 from smartnews_common.messaging.consumer import Consumer, DeliveryContext
 from smartnews_common.messaging.publisher import Publisher
 from smartnews_common.messaging.retry import RetryPolicy
 from smartnews_common.messaging.topology import dead_letter_queue_name, retry_queue_name
+from smartnews_common.models import Article
 
 ONE_MINUTE = timedelta(minutes=1)
 
@@ -215,3 +219,67 @@ def test_declare_topology_binds_the_input_queue_to_a_custom_routing_key(
 
     _, _, body = wait_for_message(unique_queue)
     assert body == b"fan out"
+
+
+class AckChannel:
+    """Stands in for a channel when only the ack of a successful delivery matters."""
+
+    def __init__(self, ack_error: Exception | None = None) -> None:
+        self.acked: list[int] = []
+        self._ack_error = ack_error
+
+    def basic_ack(self, delivery_tag: int) -> None:
+        if self._ack_error is not None:
+            raise self._ack_error
+        self.acked.append(delivery_tag)
+
+
+def make_fetched_body() -> bytes:
+    article = Article(
+        title="Hello", url="https://example.com/a", source="s", published_at=None, summary="S"
+    )
+    return ArticleFetched.from_article(article, article_id=5).model_dump_json().encode()
+
+
+def deliver_to_fake_channel(channel: AckChannel, queue: str) -> None:
+    consumer = Consumer(
+        rabbitmq_url="amqp://unused",
+        queue=queue,
+        message_type=ArticleFetched,
+        handler=lambda message, context: None,
+    )
+    consumer.handle_delivery(
+        cast(BlockingChannel, channel),
+        Basic.Deliver(delivery_tag=7),
+        pika.BasicProperties(headers={"x-attempt": 2}),
+        make_fetched_body(),
+    )
+
+
+def test_handle_delivery_logs_the_received_and_acked_article_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    channel = AckChannel()
+
+    with caplog.at_level(logging.INFO):
+        deliver_to_fake_channel(channel, "articles.fetched")
+
+    assert channel.acked == [7]
+    assert [record.getMessage() for record in caplog.records] == [
+        "received message on articles.fetched: article_id=5 attempt=2",
+        "acked message on articles.fetched: article_id=5",
+    ]
+
+
+def test_handle_delivery_logs_and_reraises_a_failed_ack(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    channel = AckChannel(ack_error=ConnectionError("channel closed"))
+
+    with caplog.at_level(logging.INFO), pytest.raises(ConnectionError):
+        deliver_to_fake_channel(channel, "articles.fetched")
+
+    assert caplog.records[-1].levelno == logging.ERROR
+    assert caplog.records[-1].getMessage() == (
+        "failed to ack message on articles.fetched: article_id=5"
+    )

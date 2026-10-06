@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from pydantic import BaseModel
 from smartnews_common.messages import ArticleCrawled, ArticleFetched
@@ -80,3 +82,56 @@ def test_handler_raises_and_records_nothing_when_translation_fails(
         handler(make_crawled(), make_context(publisher, is_final_attempt=is_final_attempt))
 
     assert (recorder.recorded, publisher.published) == ([], [])
+
+
+class FailingContentRecorder:
+    def record_content(self, article_id: int, content: str) -> None:
+        raise RuntimeError("database down")
+
+
+def logged_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [record.getMessage() for record in caplog.records]
+
+
+def test_handler_logs_every_successful_step_with_the_article_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    handler = make_handler(FakeTranslator(), RecordingContentRecorder())
+
+    with caplog.at_level(logging.INFO):
+        handler(make_crawled(), make_context(RecordingPublisher()))
+
+    assert logged_messages(caplog) == [
+        "translate content succeeded: article_id=5",
+        "save translated content succeeded: article_id=5",
+    ]
+
+
+def test_handler_logs_a_failed_translation_with_the_article_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    handler = make_handler(
+        FakeTranslator(error=TransformationError("quota")), RecordingContentRecorder()
+    )
+
+    with caplog.at_level(logging.INFO), pytest.raises(TransformationError):
+        handler(make_crawled(), make_context(RecordingPublisher()))
+
+    assert logged_messages(caplog) == [
+        "translate content failed: article_id=5 error=quota"
+    ]
+
+
+def test_handler_logs_a_failed_save_with_the_article_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    handler = ContentTranslationHandler(
+        translator=FakeTranslator(), recorder=FailingContentRecorder()
+    )
+
+    with caplog.at_level(logging.INFO), pytest.raises(RuntimeError):
+        handler(make_crawled(), make_context(RecordingPublisher()))
+
+    assert "save translated content failed: article_id=5 error=database down" in (
+        logged_messages(caplog)
+    )

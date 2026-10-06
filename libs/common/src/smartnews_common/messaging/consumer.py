@@ -9,6 +9,7 @@ from pika.exceptions import AMQPConnectionError
 from pika.spec import Basic
 from pydantic import BaseModel, ValidationError
 
+from smartnews_common.messages import ArticleMessage
 from smartnews_common.messaging.connection import (
     connection_parameters,
     open_confirmed_channel,
@@ -93,20 +94,24 @@ class Consumer[M: BaseModel]:
     ) -> None:
         publisher = Publisher(channel)
         attempt = _attempt_of(properties)
-        destination = self._process(publisher, body, attempt)
-        if destination is not None:
-            publisher.publish_body(destination, body, attempt + 1)
-        channel.basic_ack(delivery_tag=method.delivery_tag)
-
-    def _process(self, publisher: Publisher, body: bytes, attempt: int) -> str | None:
-        """Run the handler; return where to republish the body, or None when done."""
         queue = self._queue
         try:
             message = self._message_type.model_validate_json(body)
         except ValidationError:
             logger.exception("invalid message on %s; dead-lettering it", queue)
-            return dead_letter_queue_name(queue)
+            label, destination = "invalid message", dead_letter_queue_name(queue)
+        else:
+            label = _describe(message)
+            logger.info("received message on %s: %s attempt=%d", queue, label, attempt)
+            destination = self._process(publisher, message, label, attempt)
+        if destination is not None:
+            self._republish(publisher, destination, body, attempt + 1, label)
+        self._ack(channel, method, label)
 
+    def _process(
+        self, publisher: Publisher, message: M, label: str, attempt: int
+    ) -> str | None:
+        """Run the handler; return where to republish the body, or None when done."""
         policy = self._retry_policy
         context = DeliveryContext(
             attempt=attempt,
@@ -118,15 +123,44 @@ class Consumer[M: BaseModel]:
         # Any handler failure, expected or a bug, goes through the retry
         # ladder so it is retried and finally visible in the DLQ, never lost.
         except Exception:
-            destination = policy.failure_destination(queue, attempt)
+            destination = policy.failure_destination(self._queue, attempt)
             logger.exception(
-                "handler failed on %s (attempt %d); routing message to %s",
-                queue,
+                "handler failed on %s: %s attempt=%d; routing message to %s",
+                self._queue,
+                label,
                 attempt,
                 destination,
             )
             return destination
         return None
+
+    def _republish(
+        self,
+        publisher: Publisher,
+        destination: str,
+        body: bytes,
+        attempt: int,
+        label: str,
+    ) -> None:
+        try:
+            publisher.publish_body(destination, body, attempt)
+        except Exception:
+            logger.exception(
+                "failed to route message on %s: %s to %s",
+                self._queue,
+                label,
+                destination,
+            )
+            raise
+        logger.info("routed message on %s: %s to %s", self._queue, label, destination)
+
+    def _ack(self, channel: BlockingChannel, method: Basic.Deliver, label: str) -> None:
+        try:
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+        except Exception:
+            logger.exception("failed to ack message on %s: %s", self._queue, label)
+            raise
+        logger.info("acked message on %s: %s", self._queue, label)
 
     def _consume_until_stopped(self) -> None:
         connection = pika.BlockingConnection(connection_parameters(self._rabbitmq_url))
@@ -146,6 +180,12 @@ class Consumer[M: BaseModel]:
             self._connection, self._channel = None, None
             if connection.is_open:
                 connection.close()
+
+
+def _describe(message: BaseModel) -> str:
+    if isinstance(message, ArticleMessage):
+        return f"article_id={message.article_id}"
+    return type(message).__name__
 
 
 def _attempt_of(properties: pika.BasicProperties) -> int:
