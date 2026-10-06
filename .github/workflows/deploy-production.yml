@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [fetcher, transformer, notifier, crawler, api, migrate]
+        service: [fetcher, transformer, notifier, crawler, api, redriver, migrate]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -131,14 +131,16 @@ jobs:
             OLD_TRANSFORMER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-transformer 2>/dev/null || true)
             OLD_NOTIFIER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-notifier 2>/dev/null || true)
             OLD_API_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-api 2>/dev/null || true)
+            OLD_REDRIVER_IMAGE=\$(docker inspect --format='{{.Image}}' smartnews-redriver 2>/dev/null || true)
 
             docker pull ${IMAGE_BASE}-fetcher:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-crawler:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-transformer:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-notifier:${IMAGE_TAG}
             docker pull ${IMAGE_BASE}-api:${IMAGE_TAG}
+            docker pull ${IMAGE_BASE}-redriver:${IMAGE_TAG}
 
-            docker rm -f smartnews-fetcher smartnews-crawler smartnews-transformer smartnews-notifier smartnews-api 2>/dev/null || true
+            docker rm -f smartnews-fetcher smartnews-crawler smartnews-transformer smartnews-notifier smartnews-api smartnews-redriver 2>/dev/null || true
 
             docker run -d --name smartnews-fetcher --restart unless-stopped \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
@@ -172,6 +174,10 @@ jobs:
               ${IMAGE_BASE}-api:${IMAGE_TAG} \
               gunicorn --bind 0.0.0.0:8000 --workers 4 'smartnews_api.wsgi:build_app()'
 
-            docker rmi \$OLD_FETCHER_IMAGE \$OLD_CRAWLER_IMAGE \$OLD_TRANSFORMER_IMAGE \$OLD_NOTIFIER_IMAGE \$OLD_API_IMAGE 2>/dev/null || true
+            docker run -d --name smartnews-redriver --restart unless-stopped \
+              -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
+              ${IMAGE_BASE}-redriver:${IMAGE_TAG} smartnews-redriver
+
+            docker rmi \$OLD_FETCHER_IMAGE \$OLD_CRAWLER_IMAGE \$OLD_TRANSFORMER_IMAGE \$OLD_NOTIFIER_IMAGE \$OLD_API_IMAGE \$OLD_REDRIVER_IMAGE 2>/dev/null || true
             docker image prune -f
           "
