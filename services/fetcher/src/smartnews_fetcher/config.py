@@ -1,9 +1,9 @@
 from datetime import time
 from pathlib import Path
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 from pydantic import BaseModel, field_validator
+from smartnews_common.timezones import validate_timezone
 
 
 class SourceConfig(BaseModel):
@@ -24,11 +24,7 @@ class FetcherConfig(BaseModel):
     @field_validator("timezone")
     @classmethod
     def _validate_timezone(cls, timezone: str) -> str:
-        try:
-            ZoneInfo(timezone)
-        except ZoneInfoNotFoundError as error:
-            raise ValueError(f"unknown timezone: {timezone}") from error
-        return timezone
+        return validate_timezone(timezone)
 
 
 def load_fetcher_config(path: Path) -> FetcherConfig:
