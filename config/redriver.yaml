@@ -1,8 +1,8 @@
 # Runs at the top of every hour (minute :00) in this timezone, e.g. 01:00, 02:00, 03:00.
 timezone: Asia/Ho_Chi_Minh
 
-# When true, runs a single redrive pass immediately and exits instead of
-# looping hourly. Useful for local testing.
+# When true, runs a single pass of each enabled job immediately and exits
+# instead of looping hourly. Useful for local testing.
 run_once: false
 
 # Seconds to wait between two redriven messages, so the redriven crawls do
@@ -17,3 +17,12 @@ max_messages_per_run: 10
 # Main queues to redrive; each one's dead-letter queue is <queue>.dlq.
 queues:
   - articles.crawled
+
+# Republishes articles whose title/summary were never translated to
+# articles.fetched (default exchange, so they are not re-crawled), every hour.
+# Reuses delay_seconds and max_messages_per_run above. Needs DATABASE_URL.
+retransform:
+  enabled: true
+  # Only articles fetched at least this long ago, so articles still going
+  # through the transformer's retry ladder (up to ~21 min) are left alone.
+  min_age_minutes: 60

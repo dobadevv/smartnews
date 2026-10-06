@@ -1,13 +1,14 @@
 [project]
 name = "smartnews-redriver"
 version = "0.1.0"
-description = "Moves dead-lettered messages back to their main queue every hour"
+description = "Redrives dead-lettered messages and republishes untranslated articles every hour"
 requires-python = ">=3.14"
 dependencies = [
     "pika>=1.4.4",
     "pydantic>=2.13.5",
     "pyyaml>=6.0.3",
     "smartnews-common",
+    "sqlalchemy>=2.1.1",
 ]
 
 [project.scripts]

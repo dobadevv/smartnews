@@ -2,8 +2,9 @@
 # versions:
 #   sqlc v1.31.1
 # source: articles.sql
+import dataclasses
 import datetime
-from typing import Optional
+from typing import Iterator, Optional
 
 import sqlalchemy
 
@@ -19,6 +20,32 @@ VALUES (
 ON CONFLICT (hash_url) DO NOTHING
 RETURNING id
 """
+
+
+LIST_UNTRANSFORMED_ARTICLES = """-- name: list_untransformed_articles \\:many
+SELECT a.id, a.hash_url, a.url, a.title, a.summary, a.published_at,
+       a.source, a.thumbnail, a.category
+FROM articles a
+LEFT JOIN article_transformations t ON t.article_id = a.id
+WHERE t.title IS NULL
+  AND t.summary IS NULL
+  AND a.created_at <= now() - make_interval(mins => :p1\\:\\:int)
+ORDER BY a.created_at ASC, a.id ASC
+LIMIT :p2\\:\\:int
+"""
+
+
+@dataclasses.dataclass()
+class ListUntransformedArticlesRow:
+    id: int
+    hash_url: str
+    url: str
+    title: str
+    summary: Optional[str]
+    published_at: Optional[datetime.datetime]
+    source: str
+    thumbnail: Optional[str]
+    category: Optional[str]
 
 
 class Querier:
@@ -39,3 +66,18 @@ class Querier:
         if row is None:
             return None
         return row[0]
+
+    def list_untransformed_articles(self, *, min_age_minutes: int, max_rows: int) -> Iterator[ListUntransformedArticlesRow]:
+        result = self._conn.execute(sqlalchemy.text(LIST_UNTRANSFORMED_ARTICLES), {"p1": min_age_minutes, "p2": max_rows})
+        for row in result:
+            yield ListUntransformedArticlesRow(
+                id=row[0],
+                hash_url=row[1],
+                url=row[2],
+                title=row[3],
+                summary=row[4],
+                published_at=row[5],
+                source=row[6],
+                thumbnail=row[7],
+                category=row[8],
+            )

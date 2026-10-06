@@ -175,6 +175,7 @@ jobs:
               gunicorn --bind 0.0.0.0:8000 --workers 4 'smartnews_api.wsgi:build_app()'
 
             docker run -d --name smartnews-redriver --restart unless-stopped \
+              -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               ${IMAGE_BASE}-redriver:${IMAGE_TAG} smartnews-redriver
 
