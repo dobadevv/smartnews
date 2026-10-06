@@ -35,7 +35,7 @@ def clean_crawl_queues(rabbitmq_channel: BlockingChannel) -> None:
     )
     # Retry queues too: a leftover would TTL back into a main queue mid-test.
     retry_queues = [
-        retry_queue_name(queue, delay)
+        retry_queue_name(queue=queue, delay=delay)
         for queue in (ARTICLES_TO_CRAWL, ARTICLES_FETCHED)
         for delay in DEFAULT_RETRY_DELAYS
     ]
