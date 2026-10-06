@@ -1,6 +1,6 @@
 import logging
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol
 
 import pika
@@ -37,20 +37,24 @@ class MessageHandler[M: BaseModel](Protocol):
     def __call__(self, message: M, context: DeliveryContext) -> None: ...
 
 
-@dataclass(frozen=True)
-class ConsumerDeps[M: BaseModel]:
-    rabbitmq_url: str
-    queue: str
-    message_type: type[M]
-    handler: MessageHandler[M]
-    retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
-    output_queues: tuple[str, ...] = ()
-    input_routing_key: str | None = None
-
-
 class Consumer[M: BaseModel]:
-    def __init__(self, deps: ConsumerDeps[M]) -> None:
-        self._deps = deps
+    def __init__(
+        self,
+        rabbitmq_url: str,
+        queue: str,
+        message_type: type[M],
+        handler: MessageHandler[M],
+        retry_policy: RetryPolicy | None = None,
+        output_queues: tuple[str, ...] = (),
+        input_routing_key: str | None = None,
+    ) -> None:
+        self._rabbitmq_url = rabbitmq_url
+        self._queue = queue
+        self._message_type = message_type
+        self._handler = handler
+        self._retry_policy = retry_policy if retry_policy is not None else RetryPolicy()
+        self._output_queues = output_queues
+        self._input_routing_key = input_routing_key
         self._stop_requested = threading.Event()
         self._connection: pika.BlockingConnection | None = None
         self._channel: BlockingChannel | None = None
@@ -62,7 +66,7 @@ class Consumer[M: BaseModel]:
             except AMQPConnectionError:
                 logger.exception(
                     "lost rabbitmq connection while consuming %s; reconnecting in %.0fs",
-                    self._deps.queue,
+                    self._queue,
                     RECONNECT_DELAY_SECONDS,
                 )
                 self._stop_requested.wait(RECONNECT_DELAY_SECONDS)
@@ -74,11 +78,9 @@ class Consumer[M: BaseModel]:
             connection.add_callback_threadsafe(channel.stop_consuming)
 
     def declare_topology(self, channel: BlockingChannel) -> None:
-        delays = self._deps.retry_policy.delays
-        declare_stage(
-            channel, self._deps.queue, delays, routing_key=self._deps.input_routing_key
-        )
-        for queue in self._deps.output_queues:
+        delays = self._retry_policy.delays
+        declare_stage(channel, self._queue, delays, routing_key=self._input_routing_key)
+        for queue in self._output_queues:
             declare_stage(channel, queue, delays)
 
     def handle_delivery(
@@ -97,21 +99,21 @@ class Consumer[M: BaseModel]:
 
     def _process(self, publisher: Publisher, body: bytes, attempt: int) -> str | None:
         """Run the handler; return where to republish the body, or None when done."""
-        queue = self._deps.queue
+        queue = self._queue
         try:
-            message = self._deps.message_type.model_validate_json(body)
+            message = self._message_type.model_validate_json(body)
         except ValidationError:
             logger.exception("invalid message on %s; dead-lettering it", queue)
             return dead_letter_queue_name(queue)
 
-        policy = self._deps.retry_policy
+        policy = self._retry_policy
         context = DeliveryContext(
             attempt=attempt,
             is_final_attempt=policy.is_final_attempt(attempt),
             publisher=publisher,
         )
         try:
-            self._deps.handler(message, context)
+            self._handler(message, context)
         # Any handler failure, expected or a bug, goes through the retry
         # ladder so it is retried and finally visible in the DLQ, never lost.
         except Exception:
@@ -126,20 +128,18 @@ class Consumer[M: BaseModel]:
         return None
 
     def _consume_until_stopped(self) -> None:
-        connection = pika.BlockingConnection(
-            connection_parameters(self._deps.rabbitmq_url)
-        )
+        connection = pika.BlockingConnection(connection_parameters(self._rabbitmq_url))
         try:
             channel = open_confirmed_channel(connection)
             self.declare_topology(channel)
             channel.basic_qos(prefetch_count=1)
             channel.basic_consume(
-                queue=self._deps.queue, on_message_callback=self.handle_delivery
+                queue=self._queue, on_message_callback=self.handle_delivery
             )
             self._connection, self._channel = connection, channel
             # stop() may have run before the connection was published above.
             if not self._stop_requested.is_set():
-                logger.info("consuming %s", self._deps.queue)
+                logger.info("consuming %s", self._queue)
                 channel.start_consuming()
         finally:
             self._connection, self._channel = None, None

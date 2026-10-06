@@ -1,6 +1,7 @@
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from functools import partial
 
 import pytest
 from pika.adapters.blocking_connection import BlockingChannel
@@ -8,7 +9,6 @@ from pydantic import BaseModel
 from smartnews_common.messages import ArticleFetched, ArticleTransformed
 from smartnews_common.messaging.consumer import (
     Consumer,
-    ConsumerDeps,
     DeliveryContext,
     MessageHandler,
 )
@@ -28,16 +28,13 @@ from smartnews_common.models import Article, Transformation
 from smartnews_crawler.config import CrawlerConfig
 from smartnews_crawler.extraction.registry import ExtractorRegistry
 from smartnews_crawler.fetching.base import FetchError
-from smartnews_crawler.handler import CrawlerHandler, CrawlerHandlerDeps
+from smartnews_crawler.handler import CrawlerHandler
 from smartnews_crawler.recording import DatabaseContentRecorder
 from smartnews_fetcher.config import FetcherConfig, SourceConfig
-from smartnews_fetcher.cycle import CycleDeps, run_cycle
-from smartnews_notifier.handler import NotificationHandler, NotificationHandlerDeps
+from smartnews_fetcher.cycle import run_cycle
+from smartnews_notifier.handler import NotificationHandler
 from smartnews_notifier.ledger import DatabaseDeliveryLedger
-from smartnews_transformer.handler import (
-    TransformationHandler,
-    TransformationHandlerDeps,
-)
+from smartnews_transformer.handler import TransformationHandler
 from smartnews_transformer.recording import DatabaseTransformationRecorder
 from sqlalchemy import Engine, text
 
@@ -99,8 +96,7 @@ def clean_queues(rabbitmq_channel: BlockingChannel) -> None:
             rabbitmq_channel.queue_purge(name)
 
 
-def start_consumer(request: pytest.FixtureRequest, deps: ConsumerDeps) -> None:
-    consumer = Consumer(deps)
+def start_consumer(request: pytest.FixtureRequest, consumer: Consumer) -> None:
     thread = threading.Thread(target=consumer.run)
     thread.start()
 
@@ -126,24 +122,20 @@ def test_one_feed_entry_is_translated_and_delivered_exactly_once(
     notifier = RecordingNotifier()
     transformation = CountingHandler(
         TransformationHandler(
-            TransformationHandlerDeps(
-                article_filter=FixedTranslationFilter(),
-                recorder=DatabaseTransformationRecorder(engine),
-            )
+            article_filter=FixedTranslationFilter(),
+            recorder=DatabaseTransformationRecorder(engine),
         ),
         expected=1,
     )
     notification = CountingHandler(
         NotificationHandler(
-            NotificationHandlerDeps(
-                notifiers=[notifier], ledger=DatabaseDeliveryLedger(engine)
-            )
+            notifiers=[notifier], ledger=DatabaseDeliveryLedger(engine)
         ),
         expected=2,
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_FETCHED,
             message_type=ArticleFetched,
@@ -153,14 +145,15 @@ def test_one_feed_entry_is_translated_and_delivered_exactly_once(
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_TRANSFORMED,
             message_type=ArticleTransformed,
             handler=notification,
         ),
     )
-    cycle = CycleDeps(
+    cycle = partial(
+        run_cycle,
         config=FetcherConfig(
             sources=[SourceConfig(name="example-blog", url="unused", max_posts=1)],
         ),
@@ -169,8 +162,8 @@ def test_one_feed_entry_is_translated_and_delivered_exactly_once(
         rabbitmq_url=rabbitmq_url,
     )
 
-    first_cycle = run_cycle(cycle)
-    second_cycle = run_cycle(cycle)
+    first_cycle = cycle()
+    second_cycle = cycle()
     assert transformation.done.wait(TIMEOUT_SECONDS)
     article_id = scalar(engine, "SELECT id FROM articles")
     # A redelivered message must not post a second time.
@@ -215,32 +208,28 @@ def test_a_fetched_article_fans_out_to_transformation_and_crawler(
     notifier = RecordingNotifier()
     transformation = CountingHandler(
         TransformationHandler(
-            TransformationHandlerDeps(
-                article_filter=FixedTranslationFilter(),
-                recorder=DatabaseTransformationRecorder(engine),
-            )
+            article_filter=FixedTranslationFilter(),
+            recorder=DatabaseTransformationRecorder(engine),
         ),
         expected=1,
     )
     notification = CountingHandler(
         NotificationHandler(
-            NotificationHandlerDeps(notifiers=[notifier], ledger=DatabaseDeliveryLedger(engine))
+            notifiers=[notifier], ledger=DatabaseDeliveryLedger(engine)
         ),
         expected=1,
     )
     crawler = CountingHandler(
         CrawlerHandler(
-            CrawlerHandlerDeps(
-                fetcher=FixedPageFetcher(ARTICLE_HTML),
-                extractors=ExtractorRegistry(CrawlerConfig()),
-                recorder=DatabaseContentRecorder(engine),
-            )
+            fetcher=FixedPageFetcher(ARTICLE_HTML),
+            extractors=ExtractorRegistry(CrawlerConfig()),
+            recorder=DatabaseContentRecorder(engine),
         ),
         expected=1,
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_FETCHED,
             message_type=ArticleFetched,
@@ -250,7 +239,7 @@ def test_a_fetched_article_fans_out_to_transformation_and_crawler(
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_TRANSFORMED,
             message_type=ArticleTransformed,
@@ -259,7 +248,7 @@ def test_a_fetched_article_fans_out_to_transformation_and_crawler(
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_TO_CRAWL,
             message_type=ArticleFetched,
@@ -268,14 +257,12 @@ def test_a_fetched_article_fans_out_to_transformation_and_crawler(
             output_queues=(ARTICLES_CRAWLED,),
         ),
     )
-    cycle = CycleDeps(
+    run_cycle(
         config=FetcherConfig(sources=[SourceConfig(name="example-blog", url="unused", max_posts=1)]),
         fetcher=SingleArticleFetcher(),
         engine=engine,
         rabbitmq_url=rabbitmq_url,
     )
-
-    run_cycle(cycle)
 
     assert transformation.done.wait(TIMEOUT_SECONDS)
     assert notification.done.wait(TIMEOUT_SECONDS)
@@ -311,29 +298,25 @@ def test_crawler_failure_does_not_block_transformation_or_notification(
     notifier = RecordingNotifier()
     transformation = CountingHandler(
         TransformationHandler(
-            TransformationHandlerDeps(
-                article_filter=FixedTranslationFilter(),
-                recorder=DatabaseTransformationRecorder(engine),
-            )
+            article_filter=FixedTranslationFilter(),
+            recorder=DatabaseTransformationRecorder(engine),
         ),
         expected=1,
     )
     notification = CountingHandler(
         NotificationHandler(
-            NotificationHandlerDeps(notifiers=[notifier], ledger=DatabaseDeliveryLedger(engine))
+            notifiers=[notifier], ledger=DatabaseDeliveryLedger(engine)
         ),
         expected=1,
     )
     crawler_handler = CrawlerHandler(
-        CrawlerHandlerDeps(
-            fetcher=AlwaysFailingPageFetcher(),
-            extractors=ExtractorRegistry(CrawlerConfig()),
-            recorder=DatabaseContentRecorder(engine),
-        )
+        fetcher=AlwaysFailingPageFetcher(),
+        extractors=ExtractorRegistry(CrawlerConfig()),
+        recorder=DatabaseContentRecorder(engine),
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_FETCHED,
             message_type=ArticleFetched,
@@ -343,7 +326,7 @@ def test_crawler_failure_does_not_block_transformation_or_notification(
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_TRANSFORMED,
             message_type=ArticleTransformed,
@@ -352,7 +335,7 @@ def test_crawler_failure_does_not_block_transformation_or_notification(
     )
     start_consumer(
         request,
-        ConsumerDeps(
+        Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_TO_CRAWL,
             message_type=ArticleFetched,
@@ -362,14 +345,12 @@ def test_crawler_failure_does_not_block_transformation_or_notification(
             retry_policy=RetryPolicy(delays=(short_delay,)),
         ),
     )
-    cycle = CycleDeps(
+    run_cycle(
         config=FetcherConfig(sources=[SourceConfig(name="example-blog", url="unused", max_posts=1)]),
         fetcher=SingleArticleFetcher(),
         engine=engine,
         rabbitmq_url=rabbitmq_url,
     )
-
-    run_cycle(cycle)
 
     assert transformation.done.wait(TIMEOUT_SECONDS)
     assert notification.done.wait(TIMEOUT_SECONDS)

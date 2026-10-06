@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Protocol
 
 from smartnews_common.messages import ArticleCrawled
@@ -11,12 +10,6 @@ class ContentRecorder(Protocol):
     def record_content(self, article_id: int, content: str) -> None: ...
 
 
-@dataclass(frozen=True)
-class ContentTranslationHandlerDeps:
-    translator: ContentTranslator
-    recorder: ContentRecorder
-
-
 class ContentTranslationHandler:
     """Translates a crawled article's content and stores it.
 
@@ -24,9 +17,9 @@ class ContentTranslationHandler:
     notification, and a second message would post it twice.
     """
 
-    def __init__(self, deps: ContentTranslationHandlerDeps) -> None:
-        self._translator = deps.translator
-        self._recorder = deps.recorder
+    def __init__(self, translator: ContentTranslator, recorder: ContentRecorder) -> None:
+        self._translator = translator
+        self._recorder = recorder
 
     def __call__(self, message: ArticleCrawled, context: DeliveryContext) -> None:
         translated = self._translator.translate(message.content)

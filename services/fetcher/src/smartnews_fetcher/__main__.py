@@ -1,5 +1,7 @@
 import logging
 import threading
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -8,8 +10,8 @@ from smartnews_common.env import require_env
 from smartnews_common.logging_config import configure_logging
 from smartnews_common.signals import call_on_shutdown_signals
 
-from smartnews_fetcher.config import load_fetcher_config
-from smartnews_fetcher.cycle import CycleDeps, run_cycle
+from smartnews_fetcher.config import FetcherConfig, load_fetcher_config
+from smartnews_fetcher.cycle import run_cycle
 from smartnews_fetcher.loop import run_daily_at
 from smartnews_fetcher.rss import RssFetcher
 
@@ -21,7 +23,8 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     configure_logging()
     config = load_fetcher_config(DEFAULT_CONFIG_PATH)
-    deps = CycleDeps(
+    run_one_cycle = partial(
+        run_cycle,
         config=config,
         fetcher=RssFetcher(),
         engine=create_database_engine(require_env("DATABASE_URL")),
@@ -42,19 +45,28 @@ def main() -> None:
             config.run_at,
             config.timezone,
         )
-    _start(deps, zone, stop_requested)
+    _start(
+        run_one_cycle=run_one_cycle, config=config, zone=zone, stop_requested=stop_requested
+    )
     logger.info("fetcher stopped")
 
 
-def _start(deps: CycleDeps, zone: ZoneInfo, stop_requested: threading.Event) -> None:
-    if deps.config.run_once:
-        _run_logged_cycle(deps)
+def _start(
+    run_one_cycle: Callable[[], int],
+    config: FetcherConfig,
+    zone: ZoneInfo,
+    stop_requested: threading.Event,
+) -> None:
+    if config.run_once:
+        _run_logged_cycle(run_one_cycle)
         return
-    run_daily_at(lambda: _run_logged_cycle(deps), deps.config.run_at, zone, stop_requested)
+    run_daily_at(
+        lambda: _run_logged_cycle(run_one_cycle), config.run_at, zone, stop_requested
+    )
 
 
-def _run_logged_cycle(deps: CycleDeps) -> None:
-    published = run_cycle(deps)
+def _run_logged_cycle(run_one_cycle: Callable[[], int]) -> None:
+    published = run_one_cycle()
     logger.info("fetch cycle complete: published %d new article(s)", published)
 
 

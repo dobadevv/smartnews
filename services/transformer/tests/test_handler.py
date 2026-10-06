@@ -7,10 +7,7 @@ from smartnews_common.messaging.consumer import DeliveryContext
 from smartnews_common.messaging.topology import ARTICLES_TRANSFORMED
 from smartnews_common.models import Article, Transformation
 from smartnews_transformer.filtering.base import TransformationError
-from smartnews_transformer.handler import (
-    TransformationHandler,
-    TransformationHandlerDeps,
-)
+from smartnews_transformer.handler import TransformationHandler
 
 TRANSLATION = Transformation(title="Tiêu đề", summary="Tóm tắt", language="vi")
 
@@ -53,9 +50,7 @@ def run_handler(
     article_filter: FakeFilter, *, is_final_attempt: bool = False
 ) -> tuple[RecordingRecorder, RecordingPublisher]:
     recorder, publisher = RecordingRecorder(), RecordingPublisher()
-    handler = TransformationHandler(
-        TransformationHandlerDeps(article_filter=article_filter, recorder=recorder)
-    )
+    handler = TransformationHandler(article_filter=article_filter, recorder=recorder)
     context = DeliveryContext(
         attempt=4 if is_final_attempt else 1, is_final_attempt=is_final_attempt, publisher=publisher
     )
@@ -84,9 +79,7 @@ def test_handler_publishes_untranslated_without_recording_when_filter_is_disable
 def test_handler_raises_for_a_retry_when_translation_fails_before_the_final_attempt() -> None:
     recorder, publisher = RecordingRecorder(), RecordingPublisher()
     handler = TransformationHandler(
-        TransformationHandlerDeps(
-            article_filter=FakeFilter(error=TransformationError("quota")), recorder=recorder
-        )
+        article_filter=FakeFilter(error=TransformationError("quota")), recorder=recorder
     )
 
     with pytest.raises(TransformationError):

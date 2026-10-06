@@ -5,7 +5,7 @@ from smartnews_common.db.engine import create_database_engine
 from smartnews_common.env import require_env
 from smartnews_common.logging_config import configure_logging
 from smartnews_common.messages import ArticleFetched
-from smartnews_common.messaging.consumer import Consumer, ConsumerDeps
+from smartnews_common.messaging.consumer import Consumer
 from smartnews_common.messaging.consumer_group import ConsumerGroup
 from smartnews_common.messaging.topology import ARTICLES_FETCHED, ARTICLES_TRANSFORMED
 from smartnews_common.signals import call_on_shutdown_signals
@@ -13,10 +13,7 @@ from smartnews_common.signals import call_on_shutdown_signals
 from smartnews_transformer.config import load_transformation_config
 from smartnews_transformer.content_consumer import build_content_consumer
 from smartnews_transformer.filtering.factory import build_filter
-from smartnews_transformer.handler import (
-    TransformationHandler,
-    TransformationHandlerDeps,
-)
+from smartnews_transformer.handler import TransformationHandler
 from smartnews_transformer.recording import DatabaseTransformationRecorder
 
 DEFAULT_CONFIG_PATH = Path("config/transformer.yaml")
@@ -32,22 +29,20 @@ def main() -> None:
         create_database_engine(require_env("DATABASE_URL"))
     )
     handler = TransformationHandler(
-        TransformationHandlerDeps(
-            article_filter=build_filter(config.summary), recorder=recorder
-        )
+        article_filter=build_filter(config.summary), recorder=recorder
     )
     consumers = [
         Consumer(
-            ConsumerDeps(
-                rabbitmq_url=rabbitmq_url,
-                queue=ARTICLES_FETCHED,
-                message_type=ArticleFetched,
-                handler=handler,
-                output_queues=(ARTICLES_TRANSFORMED,),
-            )
+            rabbitmq_url=rabbitmq_url,
+            queue=ARTICLES_FETCHED,
+            message_type=ArticleFetched,
+            handler=handler,
+            output_queues=(ARTICLES_TRANSFORMED,),
         )
     ]
-    content_consumer = build_content_consumer(config.content, rabbitmq_url, recorder)
+    content_consumer = build_content_consumer(
+        config=config.content, rabbitmq_url=rabbitmq_url, recorder=recorder
+    )
     if content_consumer is not None:
         consumers.append(content_consumer)
     group = ConsumerGroup(consumers)

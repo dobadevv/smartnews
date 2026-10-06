@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import Protocol
 
 from flask import Blueprint, Response, jsonify, request
@@ -20,19 +20,15 @@ class ArticleReader(Protocol):
     def get(self, article_id: int, language: Language) -> LocalizedArticleDetail | None: ...
 
 
-@dataclass(frozen=True)
-class ArticlesBlueprintDeps:
-    reader: ArticleReader
-    page_size_limits: PageSizeLimits
-
-
-def build_articles_blueprint(deps: ArticlesBlueprintDeps) -> Blueprint:
+def build_articles_blueprint(
+    reader: ArticleReader, page_size_limits: PageSizeLimits
+) -> Blueprint:
     blueprint = Blueprint("articles", __name__)
 
     @blueprint.get("/articles")
     def list_articles() -> Response:
-        query = parse_list_query(request.args.to_dict(), deps.page_size_limits)
-        page = deps.reader.list_page(query)
+        query = parse_list_query(request.args.to_dict(), page_size_limits)
+        page = reader.list_page(query)
         return jsonify(
             items=[_article_json(article) for article in page.items],
             next_cursor=page.next_cursor,
@@ -41,7 +37,7 @@ def build_articles_blueprint(deps: ArticlesBlueprintDeps) -> Blueprint:
     @blueprint.get("/articles/<int:article_id>")
     def get_article(article_id: int) -> Response:
         query = parse_detail_query(request.args.to_dict())
-        article = deps.reader.get(article_id, query.lang)
+        article = reader.get(article_id, query.lang)
         if article is None:
             raise ArticleNotFoundError(article_id)
         return jsonify(_article_json(article))

@@ -14,7 +14,9 @@ class NullContentRecorder:
 
 def test_build_content_consumer_returns_none_when_the_step_is_disabled() -> None:
     result = build_content_consumer(
-        LlmStepConfig(enabled=False), RABBITMQ_URL, NullContentRecorder()
+        config=LlmStepConfig(enabled=False),
+        rabbitmq_url=RABBITMQ_URL,
+        recorder=NullContentRecorder(),
     )
 
     assert result is None
@@ -26,10 +28,11 @@ def test_build_content_consumer_consumes_crawled_articles_and_publishes_nothing(
     monkeypatch.setenv("GROQ_API_KEY", "fake-key")
 
     consumer = build_content_consumer(
-        LlmStepConfig(enabled=True, provider="groq"), RABBITMQ_URL, NullContentRecorder()
+        config=LlmStepConfig(enabled=True, provider="groq"),
+        rabbitmq_url=RABBITMQ_URL,
+        recorder=NullContentRecorder(),
     )
 
-    deps = consumer._deps
-    assert (deps.queue, deps.message_type, deps.output_queues) == (
+    assert (consumer._queue, consumer._message_type, consumer._output_queues) == (
         ARTICLES_CRAWLED, ArticleCrawled, ()
     )

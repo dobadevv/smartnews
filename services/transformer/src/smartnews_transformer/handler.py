@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from typing import Protocol
 
 from smartnews_common.messages import ArticleFetched, ArticleTransformed
@@ -16,16 +15,10 @@ class TransformationRecorder(Protocol):
     def record(self, article_id: int, transformation: Transformation) -> None: ...
 
 
-@dataclass(frozen=True)
-class TransformationHandlerDeps:
-    article_filter: Filter
-    recorder: TransformationRecorder
-
-
 class TransformationHandler:
-    def __init__(self, deps: TransformationHandlerDeps) -> None:
-        self._filter = deps.article_filter
-        self._recorder = deps.recorder
+    def __init__(self, article_filter: Filter, recorder: TransformationRecorder) -> None:
+        self._filter = article_filter
+        self._recorder = recorder
 
     def __call__(self, message: ArticleFetched, context: DeliveryContext) -> None:
         context.publisher.publish(ARTICLES_TRANSFORMED, self._transform(message, context))

@@ -8,7 +8,7 @@ from smartnews_crawler.config import ContentSelectorOverride, CrawlerConfig
 from smartnews_crawler.extraction.base import ExtractionError
 from smartnews_crawler.extraction.registry import ExtractorRegistry
 from smartnews_crawler.fetching.base import FetchError
-from smartnews_crawler.handler import CrawlerHandler, CrawlerHandlerDeps
+from smartnews_crawler.handler import CrawlerHandler
 
 
 class FakeFetcher:
@@ -47,7 +47,7 @@ def make_fetched(source: str = "example-blog") -> ArticleFetched:
 
 
 def make_handler(registry: ExtractorRegistry, fetcher: FakeFetcher, recorder: RecordingRecorder) -> CrawlerHandler:
-    return CrawlerHandler(CrawlerHandlerDeps(fetcher=fetcher, extractors=registry, recorder=recorder))
+    return CrawlerHandler(fetcher=fetcher, extractors=registry, recorder=recorder)
 
 
 def test_handler_records_and_publishes_the_extracted_content() -> None:

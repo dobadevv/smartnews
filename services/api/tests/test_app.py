@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 from flask.testing import FlaskClient
-from smartnews_api.app import AppDeps, create_app
+from smartnews_api.app import create_app
 from smartnews_api.catalog import ArticlePage
 from smartnews_api.language import Language, LocalizedArticle, LocalizedArticleDetail
 from smartnews_api.requests import ListArticlesQuery, PageSizeLimits
@@ -63,11 +63,9 @@ def reader() -> FakeArticleReader:
 @pytest.fixture
 def client(reader: FakeArticleReader) -> FlaskClient:
     app = create_app(
-        AppDeps(
-            reader=reader,
-            page_size_limits=PageSizeLimits(default=20, maximum=100),
-            cors_allowed_origins=[ALLOWED_ORIGIN],
-        )
+        reader=reader,
+        page_size_limits=PageSizeLimits(default=20, maximum=100),
+        cors_allowed_origins=[ALLOWED_ORIGIN],
     )
     return app.test_client()
 

@@ -3,10 +3,7 @@ from pydantic import BaseModel
 from smartnews_common.messages import ArticleCrawled, ArticleFetched
 from smartnews_common.messaging.consumer import DeliveryContext
 from smartnews_common.models import Article
-from smartnews_transformer.content_handler import (
-    ContentTranslationHandler,
-    ContentTranslationHandlerDeps,
-)
+from smartnews_transformer.content_handler import ContentTranslationHandler
 from smartnews_transformer.filtering.base import TransformationError
 
 
@@ -51,9 +48,7 @@ def make_crawled() -> ArticleCrawled:
 def make_handler(
     translator: FakeTranslator, recorder: RecordingContentRecorder
 ) -> ContentTranslationHandler:
-    return ContentTranslationHandler(
-        ContentTranslationHandlerDeps(translator=translator, recorder=recorder)
-    )
+    return ContentTranslationHandler(translator=translator, recorder=recorder)
 
 
 def make_context(publisher: RecordingPublisher, *, is_final_attempt: bool = False) -> DeliveryContext:

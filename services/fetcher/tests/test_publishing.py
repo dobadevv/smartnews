@@ -4,10 +4,7 @@ from smartnews_common.dedup import article_key
 from smartnews_common.messages import ArticleFetched
 from smartnews_common.messaging.topology import ARTICLES_FETCHED
 from smartnews_common.models import Article
-from smartnews_fetcher.publishing import (
-    TransactionalArticlePublisher,
-    TransactionalArticlePublisherDeps,
-)
+from smartnews_fetcher.publishing import TransactionalArticlePublisher
 from sqlalchemy import Engine, text
 
 
@@ -29,9 +26,7 @@ def make_article() -> Article:
 
 
 def make_publisher(engine: Engine, publisher: RecordingPublisher) -> TransactionalArticlePublisher:
-    return TransactionalArticlePublisher(
-        TransactionalArticlePublisherDeps(engine=engine, publisher=publisher)
-    )
+    return TransactionalArticlePublisher(engine=engine, publisher=publisher)
 
 
 def stored_article_count(engine: Engine) -> int:

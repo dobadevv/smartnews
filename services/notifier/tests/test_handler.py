@@ -4,11 +4,7 @@ import pytest
 from smartnews_common.messages import ArticleFetched, ArticleTransformed
 from smartnews_common.messaging.consumer import DeliveryContext
 from smartnews_common.models import Article
-from smartnews_notifier.handler import (
-    DeliveryError,
-    NotificationHandler,
-    NotificationHandlerDeps,
-)
+from smartnews_notifier.handler import DeliveryError, NotificationHandler
 
 
 class FakeNotifier:
@@ -47,7 +43,7 @@ CONTEXT = DeliveryContext(attempt=1, is_final_attempt=False, publisher=UnusedPub
 
 
 def make_handler(notifiers: list[FakeNotifier], ledger: FakeLedger) -> NotificationHandler:
-    return NotificationHandler(NotificationHandlerDeps(notifiers=notifiers, ledger=ledger))
+    return NotificationHandler(notifiers=notifiers, ledger=ledger)
 
 
 def test_handler_sends_to_every_channel_and_marks_each_delivered() -> None:

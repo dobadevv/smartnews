@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from typing import Protocol
 
 from smartnews_common.messages import ArticleCrawled, ArticleFetched
@@ -16,18 +15,13 @@ class ContentRecorder(Protocol):
     def record(self, article_id: int, content: str, extractor: str) -> None: ...
 
 
-@dataclass(frozen=True)
-class CrawlerHandlerDeps:
-    fetcher: PageFetcher
-    extractors: ExtractorRegistry
-    recorder: ContentRecorder
-
-
 class CrawlerHandler:
-    def __init__(self, deps: CrawlerHandlerDeps) -> None:
-        self._fetcher = deps.fetcher
-        self._extractors = deps.extractors
-        self._recorder = deps.recorder
+    def __init__(
+        self, fetcher: PageFetcher, extractors: ExtractorRegistry, recorder: ContentRecorder
+    ) -> None:
+        self._fetcher = fetcher
+        self._extractors = extractors
+        self._recorder = recorder
 
     def __call__(self, message: ArticleFetched, context: DeliveryContext) -> None:
         html = self._fetcher.fetch(message.url)

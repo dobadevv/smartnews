@@ -1,4 +1,3 @@
-import dataclasses
 import threading
 from collections.abc import Callable
 from datetime import timedelta
@@ -6,7 +5,7 @@ from datetime import timedelta
 import pytest
 from pika.adapters.blocking_connection import BlockingChannel
 from pydantic import BaseModel
-from smartnews_common.messaging.consumer import Consumer, ConsumerDeps, DeliveryContext
+from smartnews_common.messaging.consumer import Consumer, DeliveryContext
 from smartnews_common.messaging.publisher import Publisher
 from smartnews_common.messaging.retry import RetryPolicy
 from smartnews_common.messaging.topology import dead_letter_queue_name, retry_queue_name
@@ -36,14 +35,14 @@ class RecordingHandler:
 def make_consumer(
     rabbitmq_url: str, queue: str, handler: RecordingHandler, **overrides: object
 ) -> Consumer[Ping]:
-    deps = ConsumerDeps(
+    return Consumer(
         rabbitmq_url=rabbitmq_url,
         queue=queue,
         message_type=Ping,
         handler=handler,
         retry_policy=RetryPolicy(delays=(ONE_MINUTE,)),
+        **overrides,
     )
-    return Consumer(dataclasses.replace(deps, **overrides))
 
 
 def deliver(

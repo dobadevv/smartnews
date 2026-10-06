@@ -1,17 +1,9 @@
-from dataclasses import dataclass
-
 from smartnews_common.db.articles import ArticleStore
 from smartnews_common.messages import ArticleFetched
 from smartnews_common.messaging.publisher import MessagePublisher
 from smartnews_common.messaging.topology import ARTICLES_FETCHED
 from smartnews_common.models import Article
 from sqlalchemy import Engine
-
-
-@dataclass(frozen=True)
-class TransactionalArticlePublisherDeps:
-    engine: Engine
-    publisher: MessagePublisher
 
 
 class TransactionalArticlePublisher:
@@ -21,9 +13,9 @@ class TransactionalArticlePublisher:
     publish leaves the article new and it is retried on the next cycle.
     """
 
-    def __init__(self, deps: TransactionalArticlePublisherDeps) -> None:
-        self._engine = deps.engine
-        self._publisher = deps.publisher
+    def __init__(self, engine: Engine, publisher: MessagePublisher) -> None:
+        self._engine = engine
+        self._publisher = publisher
 
     def publish_if_new(self, article: Article) -> bool:
         with self._engine.begin() as connection:

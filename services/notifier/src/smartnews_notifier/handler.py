@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from typing import Protocol
 
 from smartnews_common.messages import ArticleTransformed
@@ -26,16 +25,10 @@ class DeliveryError(Exception):
         self.failed_channels = failed_channels
 
 
-@dataclass(frozen=True)
-class NotificationHandlerDeps:
-    notifiers: list[Notifier]
-    ledger: DeliveryLedger
-
-
 class NotificationHandler:
-    def __init__(self, deps: NotificationHandlerDeps) -> None:
-        self._notifiers = deps.notifiers
-        self._ledger = deps.ledger
+    def __init__(self, notifiers: list[Notifier], ledger: DeliveryLedger) -> None:
+        self._notifiers = notifiers
+        self._ledger = ledger
 
     def __call__(self, message: ArticleTransformed, context: DeliveryContext) -> None:
         article = message.to_article()

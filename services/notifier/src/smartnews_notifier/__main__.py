@@ -5,12 +5,12 @@ from smartnews_common.db.engine import create_database_engine
 from smartnews_common.env import require_env
 from smartnews_common.logging_config import configure_logging
 from smartnews_common.messages import ArticleTransformed
-from smartnews_common.messaging.consumer import Consumer, ConsumerDeps
+from smartnews_common.messaging.consumer import Consumer
 from smartnews_common.messaging.topology import ARTICLES_TRANSFORMED
 from smartnews_common.signals import call_on_shutdown_signals
 
 from smartnews_notifier.config import load_notification_config
-from smartnews_notifier.handler import NotificationHandler, NotificationHandlerDeps
+from smartnews_notifier.handler import NotificationHandler
 from smartnews_notifier.ledger import DatabaseDeliveryLedger
 from smartnews_notifier.notifiers.factory import build_notifiers
 
@@ -25,20 +25,14 @@ def main() -> None:
     if not notifiers:
         logger.warning("no notifier enabled; articles will be acknowledged without sending")
     handler = NotificationHandler(
-        NotificationHandlerDeps(
-            notifiers=notifiers,
-            ledger=DatabaseDeliveryLedger(
-                create_database_engine(require_env("DATABASE_URL"))
-            ),
-        )
+        notifiers=notifiers,
+        ledger=DatabaseDeliveryLedger(create_database_engine(require_env("DATABASE_URL"))),
     )
     consumer = Consumer(
-        ConsumerDeps(
-            rabbitmq_url=require_env("RABBITMQ_URL"),
-            queue=ARTICLES_TRANSFORMED,
-            message_type=ArticleTransformed,
-            handler=handler,
-        )
+        rabbitmq_url=require_env("RABBITMQ_URL"),
+        queue=ARTICLES_TRANSFORMED,
+        message_type=ArticleTransformed,
+        handler=handler,
     )
     call_on_shutdown_signals(consumer.stop)
     logger.info("notification started: channels=%s", [n.channel for n in notifiers])
