@@ -33,16 +33,16 @@ class TelegramNotifier:
     async def _send_async(self, article: Article) -> None:
         async with Bot(token=self._bot_token, base_url=self._base_url) as bot:
             if article.thumbnail:
-                await self._send_photo(bot, article)
+                await self._send_photo(bot, article, article.thumbnail)
             else:
                 await self._send_message(bot, article)
 
-    async def _send_photo(self, bot: Bot, article: Article) -> None:
+    async def _send_photo(self, bot: Bot, article: Article, thumbnail: str) -> None:
         caption = self._build_caption(article, max_length=CAPTION_LIMIT)
         try:
             await bot.send_photo(
                 chat_id=self._chat_id,
-                photo=article.thumbnail,
+                photo=thumbnail,
                 caption=caption,
                 parse_mode=ParseMode.HTML,
             )

@@ -10,6 +10,7 @@ def test_record_persists_the_content(engine: Engine) -> None:
     )
     with engine.begin() as connection:
         article_id = ArticleStore(connection).insert_if_absent(article)
+    assert article_id is not None
 
     DatabaseContentRecorder(engine).record(article_id, "Full text", "trafilatura")
 

@@ -10,8 +10,9 @@ from sqlalchemy import Engine
 LIMITS = PageSizeLimits(default=20, maximum=100)
 
 
-def list_query(**args: str) -> ListArticlesQuery:
-    return parse_list_query({"lang": "en", **args}, LIMITS)
+def list_query(**args: str | None) -> ListArticlesQuery:
+    present_args = {name: value for name, value in args.items() if value is not None}
+    return parse_list_query({"lang": "en", **present_args}, LIMITS)
 
 
 @pytest.fixture

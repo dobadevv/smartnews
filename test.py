@@ -47,7 +47,10 @@ def translate(text: str, target_language: str) -> str:
             {"role": "user", "content": text},
         ],
     )
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    if content is None:
+        raise SystemExit("groq returned no translation")
+    return content
 
 
 def main() -> None:

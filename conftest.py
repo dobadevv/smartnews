@@ -10,6 +10,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from pika.adapters.blocking_connection import BlockingChannel
+from pika.spec import Basic
 from smartnews_common.db.engine import create_database_engine
 from smartnews_common.messaging.connection import open_confirmed_channel
 from sqlalchemy import Engine, text
@@ -113,7 +114,7 @@ def insert_catalog_article(engine: Engine) -> Callable[..., int]:
     return insert
 
 
-Delivery = tuple[pika.spec.Basic.GetOk, pika.BasicProperties, bytes]
+Delivery = tuple[Basic.GetOk, pika.BasicProperties, bytes]
 
 
 @pytest.fixture(scope="session")
@@ -145,6 +146,7 @@ def wait_for_message(rabbitmq_channel: BlockingChannel) -> Callable[..., Deliver
         while time.monotonic() < deadline:
             method, properties, body = rabbitmq_channel.basic_get(queue, auto_ack=True)
             if method is not None:
+                assert properties is not None and body is not None
                 return method, properties, body
             rabbitmq_channel.connection.process_data_events(time_limit=0.05)
         pytest.fail(f"no message arrived on {queue} within {timeout}s")

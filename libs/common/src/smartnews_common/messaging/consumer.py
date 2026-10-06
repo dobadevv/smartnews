@@ -6,6 +6,7 @@ from typing import Protocol
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import AMQPConnectionError
+from pika.spec import Basic
 from pydantic import BaseModel, ValidationError
 
 from smartnews_common.messaging.connection import (
@@ -86,7 +87,7 @@ class Consumer[M: BaseModel]:
     def handle_delivery(
         self,
         channel: BlockingChannel,
-        method: pika.spec.Basic.Deliver,
+        method: Basic.Deliver,
         properties: pika.BasicProperties,
         body: bytes,
     ) -> None:
@@ -149,4 +150,5 @@ class Consumer[M: BaseModel]:
 
 def _attempt_of(properties: pika.BasicProperties) -> int:
     headers = properties.headers or {}
-    return int(headers.get(ATTEMPT_HEADER, FIRST_ATTEMPT))
+    attempt = headers.get(ATTEMPT_HEADER)
+    return attempt if isinstance(attempt, int) else FIRST_ATTEMPT

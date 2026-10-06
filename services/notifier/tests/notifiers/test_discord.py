@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Any
 
 import discord
 import pytest
@@ -13,8 +14,10 @@ WEBHOOK_URL = f"https://discord.com/api/webhooks/{WEBHOOK_ID}/{WEBHOOK_TOKEN}"
 WEBHOOK_ENDPOINT = f"https://discord.com/api/v10/webhooks/{WEBHOOK_ID}/{WEBHOOK_TOKEN}"
 
 
-def _sent_body() -> dict[str, object]:
-    return json.loads(responses.calls[0].request.body)
+def _sent_body() -> dict[str, Any]:
+    body = responses.calls[0].request.body
+    assert isinstance(body, str | bytes)
+    return json.loads(body)
 
 
 @responses.activate

@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 
 import pytest
 from smartnews_common.messages import ArticleFetched, ArticleTransformed
@@ -42,7 +43,7 @@ MESSAGE = ArticleTransformed.untranslated(ArticleFetched.from_article(ARTICLE, a
 CONTEXT = DeliveryContext(attempt=1, is_final_attempt=False, publisher=UnusedPublisher())
 
 
-def make_handler(notifiers: list[FakeNotifier], ledger: FakeLedger) -> NotificationHandler:
+def make_handler(notifiers: Sequence[FakeNotifier], ledger: FakeLedger) -> NotificationHandler:
     return NotificationHandler(notifiers=notifiers, ledger=ledger)
 
 

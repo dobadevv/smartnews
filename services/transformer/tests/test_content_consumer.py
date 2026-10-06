@@ -33,6 +33,7 @@ def test_build_content_consumer_consumes_crawled_articles_and_publishes_nothing(
         recorder=NullContentRecorder(),
     )
 
+    assert consumer is not None
     assert (consumer._queue, consumer._message_type, consumer._output_queues) == (
         ARTICLES_CRAWLED, ArticleCrawled, ()
     )

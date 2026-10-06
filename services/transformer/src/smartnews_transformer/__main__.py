@@ -6,7 +6,7 @@ from smartnews_common.env import require_env
 from smartnews_common.logging_config import configure_logging
 from smartnews_common.messages import ArticleFetched
 from smartnews_common.messaging.consumer import Consumer
-from smartnews_common.messaging.consumer_group import ConsumerGroup
+from smartnews_common.messaging.consumer_group import ConsumerGroup, RunnableConsumer
 from smartnews_common.messaging.topology import ARTICLES_FETCHED, ARTICLES_TRANSFORMED
 from smartnews_common.signals import call_on_shutdown_signals
 
@@ -31,7 +31,7 @@ def main() -> None:
     handler = TransformationHandler(
         article_filter=build_filter(config.summary), recorder=recorder
     )
-    consumers = [
+    consumers: list[RunnableConsumer] = [
         Consumer(
             rabbitmq_url=rabbitmq_url,
             queue=ARTICLES_FETCHED,

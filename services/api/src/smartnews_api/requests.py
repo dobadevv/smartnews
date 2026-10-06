@@ -45,6 +45,8 @@ class ListArticlesQuery(BaseModel):
     @field_validator("limit")
     @classmethod
     def _limit_within_maximum(cls, limit: int, info: ValidationInfo) -> int:
+        if info.context is None:
+            raise TypeError("ListArticlesQuery must be validated with a max_page_size context")
         maximum = info.context["max_page_size"]
         if limit > maximum:
             raise ValueError(f"limit must be at most {maximum}")
@@ -99,4 +101,4 @@ def _first_invalid_field(
 ) -> InvalidRequestError:
     # Pydantic's own messages name internals (enum and type names); clients get ours.
     field = error.errors()[0]["loc"][0]
-    return errors_by_field[field]
+    return errors_by_field[str(field)]

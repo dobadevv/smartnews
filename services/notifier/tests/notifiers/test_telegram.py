@@ -18,7 +18,7 @@ def _expect_get_me(httpserver: HTTPServer) -> None:
     )
 
 
-def _last_request_body(httpserver: HTTPServer) -> dict[str, object]:
+def _last_request_body(httpserver: HTTPServer) -> dict[str, str]:
     return dict(httpserver.log[-1][0].form)
 
 

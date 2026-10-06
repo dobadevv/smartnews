@@ -166,6 +166,7 @@ def test_one_feed_entry_is_translated_and_delivered_exactly_once(
     second_cycle = cycle()
     assert transformation.done.wait(TIMEOUT_SECONDS)
     article_id = scalar(engine, "SELECT id FROM articles")
+    assert isinstance(article_id, int)
     # A redelivered message must not post a second time.
     Publisher(rabbitmq_channel).publish(
         ARTICLES_TRANSFORMED,
@@ -183,9 +184,9 @@ def test_one_feed_entry_is_translated_and_delivered_exactly_once(
 
 class FixedPageFetcher:
     def __init__(self, html: str) -> None:
-        self._html = html
+        self._html = html.encode()
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str) -> bytes:
         return self._html
 
 
@@ -279,7 +280,7 @@ def test_a_fetched_article_fans_out_to_transformation_and_crawler(
 
 
 class AlwaysFailingPageFetcher:
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str) -> bytes:
         raise FetchError(f"blocked: {url}")
 
 

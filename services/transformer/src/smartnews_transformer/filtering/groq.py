@@ -33,6 +33,13 @@ def _parse_retry_after(headers: Mapping[str, str]) -> float:
         return DEFAULT_RETRY_AFTER_SECONDS
 
 
+def _message_content(response: ChatCompletion) -> str:
+    content = response.choices[0].message.content
+    if content is None:
+        raise TransformationError("groq returned no message content")
+    return content
+
+
 class _GroqModel:
     def __init__(
         self,
@@ -93,7 +100,7 @@ class GroqFilter(_GroqModel):
             build_translation_prompt(article),
             response_format={"type": "json_object"},
         )
-        parsed = json.loads(response.choices[0].message.content)
+        parsed = json.loads(_message_content(response))
         return parsed["title"], parsed["summary"]
 
 
@@ -112,7 +119,7 @@ class GroqContentTranslator(_GroqModel):
             response = self._complete(
                 build_content_translation_prompt(content[:MAX_CONTENT_CHARS])
             )
-            translated = response.choices[0].message.content.strip()
+            translated = _message_content(response).strip()
         except Exception as error:
             raise TransformationError("groq content translation failed") from error
         if not translated:

@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from typing import Protocol
 
 from smartnews_common.messages import ArticleTransformed
@@ -26,7 +27,7 @@ class DeliveryError(Exception):
 
 
 class NotificationHandler:
-    def __init__(self, notifiers: list[Notifier], ledger: DeliveryLedger) -> None:
+    def __init__(self, notifiers: Sequence[Notifier], ledger: DeliveryLedger) -> None:
         self._notifiers = notifiers
         self._ledger = ledger
 

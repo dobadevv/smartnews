@@ -1,9 +1,11 @@
 import threading
 from collections.abc import Callable
 from datetime import timedelta
+from typing import TypedDict, Unpack
 
 import pytest
 from pika.adapters.blocking_connection import BlockingChannel
+from pika.spec import Basic
 from pydantic import BaseModel
 from smartnews_common.messaging.consumer import Consumer, DeliveryContext
 from smartnews_common.messaging.publisher import Publisher
@@ -32,8 +34,13 @@ class RecordingHandler:
             raise self._error
 
 
+class ConsumerOverrides(TypedDict, total=False):
+    output_queues: tuple[str, ...]
+    input_routing_key: str | None
+
+
 def make_consumer(
-    rabbitmq_url: str, queue: str, handler: RecordingHandler, **overrides: object
+    rabbitmq_url: str, queue: str, handler: RecordingHandler, **overrides: Unpack[ConsumerOverrides]
 ) -> Consumer[Ping]:
     return Consumer(
         rabbitmq_url=rabbitmq_url,
@@ -56,7 +63,12 @@ def deliver(
             break
         channel.connection.process_data_events(time_limit=0.05)
     assert method is not None, f"message never reached {queue}"
-    consumer.handle_delivery(channel, method, properties, received)
+    assert properties is not None and received is not None
+    # basic_get answers with GetOk; the consumer is driven by push deliveries.
+    delivery = Basic.Deliver(
+        delivery_tag=method.delivery_tag, exchange=method.exchange, routing_key=method.routing_key
+    )
+    consumer.handle_delivery(channel, delivery, properties, received)
 
 
 def test_handle_delivery_passes_the_decoded_message_and_first_attempt_context(

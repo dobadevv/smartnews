@@ -3,6 +3,7 @@ from collections.abc import Callable
 import pika
 import pytest
 from pika.adapters.blocking_connection import BlockingChannel
+from pika.exceptions import UnroutableError
 from pydantic import BaseModel
 from smartnews_common.messaging.publisher import Publisher, open_publisher
 from smartnews_common.messaging.topology import DEFAULT_RETRY_DELAYS, declare_stage
@@ -31,7 +32,7 @@ def test_publish_raises_when_no_queue_is_bound_to_the_routing_key(
 ) -> None:
     declare_stage(rabbitmq_channel, unique_queue, DEFAULT_RETRY_DELAYS)
 
-    with pytest.raises(pika.exceptions.UnroutableError):
+    with pytest.raises(UnroutableError):
         Publisher(rabbitmq_channel).publish(f"{unique_queue}.missing", Ping(value="lost"))
 
 

@@ -8,6 +8,7 @@ def test_record_persists_the_transformation(engine: Engine) -> None:
     article = Article(title="T", url="https://example.com/a", source="s", published_at=None, summary=None)
     with engine.begin() as connection:
         article_id = ArticleStore(connection).insert_if_absent(article)
+    assert article_id is not None
 
     DatabaseTransformationRecorder(engine).record(
         article_id, Transformation(title="Tiêu đề", summary=None, language="vi")
@@ -25,6 +26,7 @@ def test_record_content_persists_the_content_without_a_title(engine: Engine) -> 
     article = Article(title="T", url="https://example.com/b", source="s", published_at=None, summary=None)
     with engine.begin() as connection:
         article_id = ArticleStore(connection).insert_if_absent(article)
+    assert article_id is not None
 
     DatabaseTransformationRecorder(engine).record_content(article_id, "Nội dung")
 

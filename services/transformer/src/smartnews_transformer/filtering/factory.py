@@ -1,4 +1,5 @@
 import os
+from typing import TypedDict
 
 from smartnews_transformer.config import LlmStepConfig
 from smartnews_transformer.filtering.base import ContentTranslator, Filter
@@ -44,7 +45,11 @@ def build_content_translator(config: LlmStepConfig) -> ContentTranslator | None:
             raise _unsupported_provider(config)
 
 
-def _model_options(config: LlmStepConfig) -> dict[str, str]:
+class _ModelOptions(TypedDict, total=False):
+    model: str
+
+
+def _model_options(config: LlmStepConfig) -> _ModelOptions:
     return {"model": config.model} if config.model else {}
 
 
