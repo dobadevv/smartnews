@@ -38,12 +38,14 @@ WHERE (
   AND thumbnail IS NOT NULL
   AND (:p2\\:\\:text IS NULL OR category = :p2\\:\\:text)
   AND (:p3\\:\\:text IS NULL OR source = :p3\\:\\:text)
+  AND (:p4\\:\\:timestamptz IS NULL OR sort_at >= :p4\\:\\:timestamptz)
+  AND (:p5\\:\\:timestamptz   IS NULL OR sort_at <  :p5\\:\\:timestamptz)
   AND (
-        :p4\\:\\:timestamptz IS NULL
-     OR (sort_at, id) < (:p4\\:\\:timestamptz, :p5\\:\\:bigint)
+        :p6\\:\\:timestamptz IS NULL
+     OR (sort_at, id) < (:p6\\:\\:timestamptz, :p7\\:\\:bigint)
       )
 ORDER BY sort_at DESC, id DESC
-LIMIT :p6\\:\\:int
+LIMIT :p8\\:\\:int
 """
 
 
@@ -86,14 +88,16 @@ class Querier:
             sort_at=row[12],
         )
 
-    def list_catalog_articles(self, *, language: str, category: Optional[str], source: Optional[str], cursor_sort_at: Optional[datetime.datetime], cursor_id: Optional[int], page_size: int) -> Iterator[ListCatalogArticlesRow]:
+    def list_catalog_articles(self, *, language: str, category: Optional[str], source: Optional[str], sort_at_from: Optional[datetime.datetime], sort_at_to: Optional[datetime.datetime], cursor_sort_at: Optional[datetime.datetime], cursor_id: Optional[int], page_size: int) -> Iterator[ListCatalogArticlesRow]:
         result = self._conn.execute(sqlalchemy.text(LIST_CATALOG_ARTICLES), {
             "p1": language,
             "p2": category,
             "p3": source,
-            "p4": cursor_sort_at,
-            "p5": cursor_id,
-            "p6": page_size,
+            "p4": sort_at_from,
+            "p5": sort_at_to,
+            "p6": cursor_sort_at,
+            "p7": cursor_id,
+            "p8": page_size,
         })
         for row in result:
             yield ListCatalogArticlesRow(

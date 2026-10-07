@@ -13,6 +13,8 @@ WHERE (
   AND thumbnail IS NOT NULL
   AND (sqlc.narg(category)::text IS NULL OR category = sqlc.narg(category)::text)
   AND (sqlc.narg(source)::text IS NULL OR source = sqlc.narg(source)::text)
+  AND (sqlc.narg(sort_at_from)::timestamptz IS NULL OR sort_at >= sqlc.narg(sort_at_from)::timestamptz)
+  AND (sqlc.narg(sort_at_to)::timestamptz   IS NULL OR sort_at <  sqlc.narg(sort_at_to)::timestamptz)
   AND (
         sqlc.narg(cursor_sort_at)::timestamptz IS NULL
      OR (sort_at, id) < (sqlc.narg(cursor_sort_at)::timestamptz, sqlc.narg(cursor_id)::bigint)

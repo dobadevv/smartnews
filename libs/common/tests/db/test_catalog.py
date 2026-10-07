@@ -1,5 +1,6 @@
 from collections.abc import Callable
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from smartnews_common.db.catalog import ArticleCatalogStore, CatalogPageQuery
@@ -8,6 +9,7 @@ from sqlalchemy import Engine
 JANUARY_1 = datetime(2026, 1, 1, tzinfo=UTC)
 JANUARY_2 = datetime(2026, 1, 2, tzinfo=UTC)
 JANUARY_3 = datetime(2026, 1, 3, tzinfo=UTC)
+INDOCHINA = timezone(timedelta(hours=7))
 
 
 def list_rows(engine: Engine, query: CatalogPageQuery) -> list:
@@ -164,3 +166,83 @@ def test_get_returns_nothing_when_a_detail_field_is_missing(
 
 def test_get_returns_nothing_for_an_unknown_id(engine: Engine) -> None:
     assert get_article(engine, 999, "en") is None
+
+
+@pytest.mark.parametrize(
+    ("sort_at_from", "sort_at_to", "expected"),
+    [
+        pytest.param(JANUARY_2, None, ["january-3", "january-2"], id="from is inclusive"),
+        pytest.param(None, JANUARY_2, ["january-1"], id="to is exclusive"),
+        pytest.param(JANUARY_1, JANUARY_3, ["january-2", "january-1"], id="both bounds"),
+        pytest.param(JANUARY_2, JANUARY_2, [], id="empty range"),
+        pytest.param(
+            datetime(2026, 1, 2, 7, tzinfo=INDOCHINA), None, ["january-3", "january-2"],
+            id="from in another offset is inclusive at the same instant",
+        ),
+        pytest.param(
+            None, datetime(2026, 1, 2, 7, tzinfo=INDOCHINA), ["january-1"],
+            id="to in another offset is exclusive at the same instant",
+        ),
+    ],
+)
+def test_list_page_keeps_only_articles_inside_the_sort_at_range(
+    engine: Engine,
+    insert_catalog_article: Callable[..., int],
+    sort_at_from: datetime | None,
+    sort_at_to: datetime | None,
+    expected: list[str],
+) -> None:
+    names_by_id = {
+        insert_catalog_article(published_at=JANUARY_1): "january-1",
+        insert_catalog_article(published_at=JANUARY_2): "january-2",
+        insert_catalog_article(published_at=JANUARY_3): "january-3",
+    }
+    query = CatalogPageQuery(
+        language="en", page_size=10, sort_at_from=sort_at_from, sort_at_to=sort_at_to
+    )
+
+    assert [names_by_id[article_id] for article_id in list_ids(engine, query)] == expected
+
+
+@pytest.mark.parametrize(
+    ("sort_at_from", "sort_at_to", "is_listed"),
+    [
+        pytest.param(JANUARY_2, None, True, id="created exactly at from"),
+        pytest.param(None, JANUARY_2, False, id="created exactly at to"),
+    ],
+)
+def test_list_page_bounds_undated_articles_by_creation_time(
+    engine: Engine,
+    insert_catalog_article: Callable[..., int],
+    sort_at_from: datetime | None,
+    sort_at_to: datetime | None,
+    is_listed: bool,
+) -> None:
+    undated = insert_catalog_article(published_at=None, created_at=JANUARY_2)
+    query = CatalogPageQuery(
+        language="en", page_size=10, sort_at_from=sort_at_from, sort_at_to=sort_at_to
+    )
+
+    assert list_ids(engine, query) == ([undated] if is_listed else [])
+
+
+def test_list_page_resumes_after_the_cursor_inside_the_sort_at_range(
+    engine: Engine, insert_catalog_article: Callable[..., int]
+) -> None:
+    january_1 = insert_catalog_article(published_at=JANUARY_1)
+    january_2_first = insert_catalog_article(published_at=JANUARY_2)
+    january_2_second = insert_catalog_article(published_at=JANUARY_2)
+    insert_catalog_article(published_at=JANUARY_3)
+    in_range = CatalogPageQuery(
+        language="en", page_size=2, sort_at_from=JANUARY_1, sort_at_to=JANUARY_3
+    )
+
+    first_page = list_rows(engine, in_range)
+    last = first_page[-1]
+    second_page = list_ids(
+        engine,
+        replace(in_range, page_size=10, cursor_sort_at=last.sort_at, cursor_id=last.id),
+    )
+
+    assert [row.id for row in first_page] == [january_2_second, january_2_first]
+    assert second_page == [january_1]

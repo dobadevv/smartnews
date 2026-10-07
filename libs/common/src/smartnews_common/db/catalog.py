@@ -18,6 +18,8 @@ class CatalogPageQuery:
     source: str | None = None
     cursor_sort_at: datetime | None = None
     cursor_id: int | None = None
+    sort_at_from: datetime | None = None
+    sort_at_to: datetime | None = None
 
 
 class ArticleCatalogStore:
@@ -26,12 +28,15 @@ class ArticleCatalogStore:
 
     def list_page(self, query: CatalogPageQuery) -> list[queries.ListCatalogArticlesRow]:
         """Return up to `page_size` articles complete in `language`, newest first,
-        starting after the cursor when one is given."""
+        inside the optional half-open `sort_at` range, starting after the cursor
+        when one is given."""
         return list(
             self._querier.list_catalog_articles(
                 language=query.language,
                 category=query.category,
                 source=query.source,
+                sort_at_from=query.sort_at_from,
+                sort_at_to=query.sort_at_to,
                 cursor_sort_at=query.cursor_sort_at,
                 cursor_id=query.cursor_id,
                 page_size=query.page_size,
