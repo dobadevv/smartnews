@@ -3,11 +3,13 @@ from dataclasses import dataclass
 from smartnews_common.db.catalog import (
     MAX_ARTICLE_ID,
     ArticleCatalogStore,
+    CatalogCountQuery,
     CatalogPageQuery,
 )
 from sqlalchemy import Engine
 
 from smartnews_api.cursor import PageCursor, encode_cursor
+from smartnews_api.facets import CATEGORY_LABELS, SOURCE_LABELS, Facet, build_facets
 from smartnews_api.language import (
     CatalogRow,
     Language,
@@ -16,7 +18,7 @@ from smartnews_api.language import (
     localize_article,
     localize_article_detail,
 )
-from smartnews_api.requests import ListArticlesQuery
+from smartnews_api.requests import FacetQuery, ListArticlesQuery
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,16 @@ class ArticleCatalogReader:
             row = ArticleCatalogStore(connection).get(article_id, language.value)
         return localize_article_detail(row, language) if row is not None else None
 
+    def list_categories(self, query: FacetQuery) -> list[Facet]:
+        with self._engine.connect() as connection:
+            counts = ArticleCatalogStore(connection).count_by_category(_catalog_count_query(query))
+        return build_facets(labels=CATEGORY_LABELS, counts=counts)
+
+    def list_sources(self, query: FacetQuery) -> list[Facet]:
+        with self._engine.connect() as connection:
+            counts = ArticleCatalogStore(connection).count_by_source(_catalog_count_query(query))
+        return build_facets(labels=SOURCE_LABELS, counts=counts)
+
 
 def _catalog_page_query(query: ListArticlesQuery) -> CatalogPageQuery:
     cursor = query.cursor
@@ -57,6 +69,16 @@ def _catalog_page_query(query: ListArticlesQuery) -> CatalogPageQuery:
         source=query.source,
         cursor_sort_at=cursor.sort_at if cursor else None,
         cursor_id=cursor.article_id if cursor else None,
+        sort_at_from=query.sort_at_from,
+        sort_at_to=query.sort_at_to,
+    )
+
+
+def _catalog_count_query(query: FacetQuery) -> CatalogCountQuery:
+    return CatalogCountQuery(
+        language=query.lang.value,
+        sort_at_from=query.sort_at_from,
+        sort_at_to=query.sort_at_to,
     )
 
 
