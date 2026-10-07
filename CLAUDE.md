@@ -74,6 +74,13 @@ articles (untranslated) ──(hourly)──► redriver ──(default exchange
   8000) for the frontend news reader. `GET /articles?lang=en|vi` returns a
   cursor-paginated list (`limit`, `cursor`, optional `category`/`source`)
   and `GET /articles/<id>?lang=en|vi` returns one article with its content.
+  `GET /categories?lang=` and `GET /sources?lang=` return every known value
+  with its label and the per-language `article_count` `/articles` would
+  list for it, sorted by value and not paginated; labels are hard-coded in
+  `facets.py`, which must be updated whenever `config/fetcher.yaml` gains a
+  source or category (a drift test enforces it). All three list endpoints
+  take optional `sort_at_from`/`sort_at_to` (ISO-8601 with a UTC offset,
+  `+` sent as `%2B`; half-open `[from, to)`).
   It reads the `article_catalog` view, which holds both languages side by
   side; `language.py` picks the requested one. An article appears only when
   its title, summary, content and thumbnail exist in that language (the

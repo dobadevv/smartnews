@@ -38,7 +38,8 @@ def _parse_sort_at(value: object) -> datetime:
     # Query args are always strings. Rejecting anything else stops Pydantic's lax
     # coercion from reading a number as a Unix timestamp.
     if not isinstance(value, str):
-        raise ValueError("sort_at bounds must be ISO-8601 strings")
+        # Pydantic only turns ValueError into a validation error, so TypeError is no option.
+        raise ValueError("sort_at bounds must be ISO-8601 strings")  # noqa: TRY004
     parsed = datetime.fromisoformat(value)
     # A naive time would be read in the database session's time zone.
     if parsed.tzinfo is None:

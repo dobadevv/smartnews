@@ -3,7 +3,11 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from smartnews_common.db.catalog import ArticleCatalogStore, CatalogCountQuery, CatalogPageQuery
+from smartnews_common.db.catalog import (
+    ArticleCatalogStore,
+    CatalogCountQuery,
+    CatalogPageQuery,
+)
 from sqlalchemy import Engine
 
 JANUARY_1 = datetime(2026, 1, 1, tzinfo=UTC)

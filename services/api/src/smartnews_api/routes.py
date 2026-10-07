@@ -5,11 +5,14 @@ from flask import Blueprint, Response, jsonify, request
 
 from smartnews_api.catalog import ArticlePage
 from smartnews_api.errors import ArticleNotFoundError
+from smartnews_api.facets import Facet
 from smartnews_api.language import Language, LocalizedArticle, LocalizedArticleDetail
 from smartnews_api.requests import (
+    FacetQuery,
     ListArticlesQuery,
     PageSizeLimits,
     parse_detail_query,
+    parse_facet_query,
     parse_list_query,
 )
 
@@ -18,6 +21,10 @@ class ArticleReader(Protocol):
     def list_page(self, query: ListArticlesQuery) -> ArticlePage: ...
 
     def get(self, article_id: int, language: Language) -> LocalizedArticleDetail | None: ...
+
+    def list_categories(self, query: FacetQuery) -> list[Facet]: ...
+
+    def list_sources(self, query: FacetQuery) -> list[Facet]: ...
 
 
 def build_articles_blueprint(
@@ -42,7 +49,21 @@ def build_articles_blueprint(
             raise ArticleNotFoundError(article_id)
         return jsonify(_article_json(article))
 
+    @blueprint.get("/categories")
+    def list_categories() -> Response:
+        query = parse_facet_query(request.args.to_dict())
+        return _facets_json(reader.list_categories(query))
+
+    @blueprint.get("/sources")
+    def list_sources() -> Response:
+        query = parse_facet_query(request.args.to_dict())
+        return _facets_json(reader.list_sources(query))
+
     return blueprint
+
+
+def _facets_json(facets: list[Facet]) -> Response:
+    return jsonify(items=[asdict(facet) for facet in facets])
 
 
 def _article_json(article: LocalizedArticle) -> dict[str, object]:
