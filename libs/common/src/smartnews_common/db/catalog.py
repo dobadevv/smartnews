@@ -18,6 +18,15 @@ class CatalogPageQuery:
     source: str | None = None
     cursor_sort_at: datetime | None = None
     cursor_id: int | None = None
+    sort_at_from: datetime | None = None
+    sort_at_to: datetime | None = None
+
+
+@dataclass(frozen=True)
+class CatalogCountQuery:
+    language: str
+    sort_at_from: datetime | None = None
+    sort_at_to: datetime | None = None
 
 
 class ArticleCatalogStore:
@@ -26,17 +35,41 @@ class ArticleCatalogStore:
 
     def list_page(self, query: CatalogPageQuery) -> list[queries.ListCatalogArticlesRow]:
         """Return up to `page_size` articles complete in `language`, newest first,
-        starting after the cursor when one is given."""
+        inside the optional half-open `sort_at` range, starting after the cursor
+        when one is given."""
         return list(
             self._querier.list_catalog_articles(
                 language=query.language,
                 category=query.category,
                 source=query.source,
+                sort_at_from=query.sort_at_from,
+                sort_at_to=query.sort_at_to,
                 cursor_sort_at=query.cursor_sort_at,
                 cursor_id=query.cursor_id,
                 page_size=query.page_size,
             )
         )
+
+    def count_by_category(self, query: CatalogCountQuery) -> dict[str, int]:
+        """Return how many articles `list_page` would list per category, for the
+        categories that have at least one."""
+        rows = self._querier.count_catalog_articles_by_category(
+            language=query.language,
+            sort_at_from=query.sort_at_from,
+            sort_at_to=query.sort_at_to,
+        )
+        # The query already excludes null categories; the check only narrows the type.
+        return {row.category: row.article_count for row in rows if row.category is not None}
+
+    def count_by_source(self, query: CatalogCountQuery) -> dict[str, int]:
+        """Return how many articles `list_page` would list per source, for the
+        sources that have at least one."""
+        rows = self._querier.count_catalog_articles_by_source(
+            language=query.language,
+            sort_at_from=query.sort_at_from,
+            sort_at_to=query.sort_at_to,
+        )
+        return {row.source: row.article_count for row in rows}
 
     def get(self, article_id: int, language: str) -> ArticleCatalog | None:
         """Return the article if it is complete, content included, in `language`."""
