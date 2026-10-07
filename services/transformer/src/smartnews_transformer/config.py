@@ -18,6 +18,7 @@ class LlmStepConfig(BaseModel):
 class TransformationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    run_once: bool = False
     summary: LlmStepConfig = LlmStepConfig()
     content: LlmStepConfig = LlmStepConfig()
 

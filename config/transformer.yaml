@@ -1,3 +1,8 @@
+# When true, handles at most one message from articles.fetched, then one from
+# articles.crawled, and exits instead of consuming forever. A failed message
+# goes to its retry queue as usual. Useful for local testing.
+run_once: false
+
 summary:
   enabled: true
   provider: gemini

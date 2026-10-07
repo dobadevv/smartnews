@@ -94,3 +94,15 @@ def test_load_transformation_config_rejects_a_negative_delay(tmp_path: Path) -> 
 
     with pytest.raises(ValidationError, match="delay_seconds"):
         load_transformation_config(path)
+
+
+def test_load_transformation_config_defaults_run_once_to_false(tmp_path: Path) -> None:
+    config = load_transformation_config(write_config(tmp_path, ""))
+
+    assert config.run_once is False
+
+
+def test_load_transformation_config_parses_run_once(tmp_path: Path) -> None:
+    config = load_transformation_config(write_config(tmp_path, "run_once: true\n"))
+
+    assert config.run_once is True

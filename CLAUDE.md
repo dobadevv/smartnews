@@ -128,7 +128,8 @@ queue every hour.
 One file per service under `config/`: `fetcher.yaml`
 (`run_at`/`timezone`, `sources[]` with `name`, `url`, `category`,
 `enabled`, `max_posts`, `lookback_days`), `transformer.yaml`
-(`summary` and `content`, each with `enabled`, `provider`, `model`,
+(`run_once` — handle one message per queue and exit; `summary` and `content`,
+each with `enabled`, `provider`, `model`,
 `delay_seconds` — minimum spacing between that step's LLM calls),
 `notifier.yaml` (`notifiers.<channel>.enabled`), `crawler.yaml`
 (`timeout_seconds`, `user_agent`, `overrides.<source-slug>.content_selector`),

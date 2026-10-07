@@ -49,14 +49,18 @@ def main() -> None:
     call_on_shutdown_signals(group.stop)
     logger.info(
         "transformation started: summary enabled=%s provider=%s, "
-        "content enabled=%s provider=%s, consumers=%d",
+        "content enabled=%s provider=%s, consumers=%d, run_once=%s",
         config.summary.enabled,
         config.summary.provider,
         config.content.enabled,
         config.content.provider,
         len(consumers),
+        config.run_once,
     )
-    group.run()
+    if config.run_once:
+        group.consume_one()
+    else:
+        group.run()
     logger.info("transformation stopped")
 
 
