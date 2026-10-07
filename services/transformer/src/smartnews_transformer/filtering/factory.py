@@ -8,6 +8,10 @@ from smartnews_transformer.filtering.gemini import (
     GeminiFilter,
 )
 from smartnews_transformer.filtering.groq import GroqContentTranslator, GroqFilter
+from smartnews_transformer.filtering.opencode_go import (
+    OpencodeGoContentTranslator,
+    OpencodeGoFilter,
+)
 from smartnews_transformer.filtering.passthrough import PassthroughFilter
 from smartnews_transformer.filtering.throttle import (
     Throttle,
@@ -37,6 +41,10 @@ def _build_provider_filter(config: LlmStepConfig) -> Filter:
             return GroqFilter(
                 _require_api_key("GROQ_API_KEY"), **_model_options(config)
             )
+        case "opencode-go":
+            return OpencodeGoFilter(
+                _require_api_key("OPENCODE_GO_API_KEY"), **_model_options(config)
+            )
         case _:
             raise _unsupported_provider(config)
 
@@ -61,6 +69,10 @@ def _build_provider_content_translator(config: LlmStepConfig) -> ContentTranslat
         case "groq":
             return GroqContentTranslator(
                 _require_api_key("GROQ_API_KEY"), **_model_options(config)
+            )
+        case "opencode-go":
+            return OpencodeGoContentTranslator(
+                _require_api_key("OPENCODE_GO_API_KEY"), **_model_options(config)
             )
         case _:
             raise _unsupported_provider(config)

@@ -5,13 +5,11 @@ run_once: false
 
 summary:
   enabled: true
-  provider: gemini
-  model: gemini-3.8-flash
-  # Minimum seconds between two LLM calls of this step, to stay under the
-  # provider's rate limit. 0 disables the delay.
+  provider: opencode-go
+  model: mimo-v2.6-flash
   delay_seconds: 4
 content:
   enabled: true
-  provider: groq
-  model: openai/gpt-oss-120b
+  provider: opencode-go
+  model: mimo-v2.6-flash
   delay_seconds: 4

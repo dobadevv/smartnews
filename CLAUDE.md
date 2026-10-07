@@ -49,9 +49,9 @@ articles (untranslated) ──(hourly)──► redriver ──(default exchange
   next cycle.
 - **transformer-service** (`services/transformer`) — consumes
   `articles.fetched`, runs the `summary` step's configured `Filter`
-  (Gemini/Groq/passthrough), upserts `article_transformations`, publishes
+  (Gemini/Groq/OpenCode Go/passthrough), upserts `article_transformations`, publishes
   `ArticleTransformed`. A second consumer translates crawled content with
-  the `content` step's `ContentTranslator` (Gemini or Groq); each step picks
+  the `content` step's `ContentTranslator` (Gemini, Groq or OpenCode Go); each step picks
   its provider and model independently.
   Filters raise `TransformationError`; on the final attempt the article is
   forwarded untranslated (`language=None`) instead of dropped.
@@ -138,7 +138,7 @@ each with `enabled`, `provider`, `model`,
 `max_messages_per_run`, `queues`, `retransform.enabled`,
 `retransform.min_age_minutes`).
 Credentials come only from env: `DATABASE_URL` for all services (the
-redriver only while `retransform.enabled` is true), `RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY` for transformer;
+redriver only while `retransform.enabled` is true), `RABBITMQ_URL` for all but api; `GEMINI_API_KEY`/`GROQ_API_KEY`/`OPENCODE_GO_API_KEY` for transformer;
 `DISCORD_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` for
 notifier. The crawler, api and redriver need no API key; the redriver
 needs only `RABBITMQ_URL`, plus `DATABASE_URL` for retransform. See

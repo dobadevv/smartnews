@@ -11,6 +11,10 @@ from smartnews_transformer.filtering.gemini import (
 )
 from smartnews_transformer.filtering.groq import DEFAULT_MODEL as GROQ_DEFAULT_MODEL
 from smartnews_transformer.filtering.groq import GroqContentTranslator, GroqFilter
+from smartnews_transformer.filtering.opencode_go import (
+    OpencodeGoContentTranslator,
+    OpencodeGoFilter,
+)
 from smartnews_transformer.filtering.passthrough import PassthroughFilter
 from smartnews_transformer.filtering.throttle import (
     ThrottledContentTranslator,
@@ -204,3 +208,40 @@ def test_build_content_translator_throttles_the_provider_when_a_delay_is_configu
     assert isinstance(result, ThrottledContentTranslator)
     assert isinstance(result._translator, GroqContentTranslator)
     assert result._throttle._delay_seconds == 2
+
+
+def test_build_filter_builds_opencode_go_filter_with_the_configured_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCODE_GO_API_KEY", "fake-key")
+
+    result = build_filter(
+        LlmStepConfig(enabled=True, provider="opencode-go", model="mimo-v2.6-flash")
+    )
+
+    assert isinstance(result, OpencodeGoFilter)
+    assert result._client.api_key == "fake-key"
+    assert result._model == "mimo-v2.6-flash"
+
+
+def test_build_content_translator_builds_opencode_go_translator_with_the_configured_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCODE_GO_API_KEY", "fake-key")
+
+    result = build_content_translator(
+        LlmStepConfig(enabled=True, provider="opencode-go", model="mimo-v2.6-flash")
+    )
+
+    assert isinstance(result, OpencodeGoContentTranslator)
+    assert result._client.api_key == "fake-key"
+    assert result._model == "mimo-v2.6-flash"
+
+
+def test_build_filter_raises_when_opencode_go_env_var_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENCODE_GO_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="OPENCODE_GO_API_KEY"):
+        build_filter(LlmStepConfig(enabled=True, provider="opencode-go"))
