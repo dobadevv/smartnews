@@ -54,6 +54,7 @@ class LocalizedArticle:
     summary: str
     thumbnail: str
     published_at: datetime | None
+    sort_at: datetime | None
     url: str
     source: str
     category: str | None
@@ -75,6 +76,7 @@ def localize_article(row: CatalogRow, language: Language) -> LocalizedArticle:
         url=row.url,
         source=row.source,
         category=row.category,
+        sort_at=row.sort_at,
     )
 
 

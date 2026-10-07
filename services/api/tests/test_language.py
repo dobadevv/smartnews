@@ -47,6 +47,7 @@ def test_localize_article_picks_the_texts_of_the_language(
         summary=summary,
         thumbnail="https://example.com/t.png",
         published_at=PUBLISHED_AT,
+        sort_at=PUBLISHED_AT,
         url="https://example.com/a",
         source="vnexpress",
         category="tech",

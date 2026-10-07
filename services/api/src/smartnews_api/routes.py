@@ -49,4 +49,5 @@ def _article_json(article: LocalizedArticle) -> dict[str, object]:
     fields = asdict(article)
     # Flask would render datetimes as RFC 822; the frontend expects ISO-8601.
     fields["published_at"] = article.published_at.isoformat() if article.published_at else None
+    fields["sort_at"] = article.sort_at.isoformat() if article.sort_at else None
     return fields
