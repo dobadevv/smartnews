@@ -3,7 +3,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from smartnews_common.db.catalog import ArticleCatalogStore, CatalogPageQuery
+from smartnews_common.db.catalog import ArticleCatalogStore, CatalogCountQuery, CatalogPageQuery
 from sqlalchemy import Engine
 
 JANUARY_1 = datetime(2026, 1, 1, tzinfo=UTC)
@@ -24,6 +24,19 @@ def list_ids(engine: Engine, query: CatalogPageQuery) -> list[int]:
 def get_article(engine: Engine, article_id: int, language: str):
     with engine.connect() as connection:
         return ArticleCatalogStore(connection).get(article_id, language)
+
+
+Counter = Callable[[ArticleCatalogStore, CatalogCountQuery], dict[str, int]]
+
+COUNTERS = [
+    pytest.param(ArticleCatalogStore.count_by_category, "category", id="by category"),
+    pytest.param(ArticleCatalogStore.count_by_source, "source", id="by source"),
+]
+
+
+def count(engine: Engine, counter: Counter, query: CatalogCountQuery) -> dict[str, int]:
+    with engine.connect() as connection:
+        return counter(ArticleCatalogStore(connection), query)
 
 
 @pytest.mark.parametrize(
@@ -246,3 +259,124 @@ def test_list_page_resumes_after_the_cursor_inside_the_sort_at_range(
 
     assert [row.id for row in first_page] == [january_2_second, january_2_first]
     assert second_page == [january_1]
+
+
+@pytest.mark.parametrize(("counter", "column"), COUNTERS)
+def test_count_groups_eligible_articles_by_value(
+    engine: Engine, insert_catalog_article: Callable[..., int], counter: Counter, column: str
+) -> None:
+    insert_catalog_article(**{column: "alpha"})
+    insert_catalog_article(**{column: "alpha"})
+    insert_catalog_article(**{column: "beta"})
+
+    assert count(engine, counter, CatalogCountQuery(language="en")) == {"alpha": 2, "beta": 1}
+
+
+@pytest.mark.parametrize(("counter", "column"), COUNTERS)
+@pytest.mark.parametrize(
+    ("language", "missing_field"),
+    [
+        ("en", "summary_en"),
+        ("en", "content_en"),
+        ("en", "thumbnail"),
+        ("vi", "title_vi"),
+        ("vi", "summary_vi"),
+        ("vi", "content_vi"),
+        ("vi", "thumbnail"),
+    ],
+)
+def test_count_skips_articles_missing_a_listed_field_in_the_language(
+    engine: Engine,
+    insert_catalog_article: Callable[..., int],
+    counter: Counter,
+    column: str,
+    language: str,
+    missing_field: str,
+) -> None:
+    insert_catalog_article(**{column: "alpha"})
+    insert_catalog_article(**{column: "alpha", missing_field: None})
+
+    assert count(engine, counter, CatalogCountQuery(language=language)) == {"alpha": 1}
+
+
+@pytest.mark.parametrize(("counter", "column"), COUNTERS)
+def test_count_includes_untranslated_english_articles_only_in_english(
+    engine: Engine, insert_catalog_article: Callable[..., int], counter: Counter, column: str
+) -> None:
+    insert_catalog_article(**{column: "alpha", "title_vi": None, "summary_vi": None, "content_vi": None})
+
+    assert count(engine, counter, CatalogCountQuery(language="en")) == {"alpha": 1}
+    assert count(engine, counter, CatalogCountQuery(language="vi")) == {}
+
+
+def test_count_by_category_skips_articles_without_a_category(
+    engine: Engine, insert_catalog_article: Callable[..., int]
+) -> None:
+    insert_catalog_article(category="alpha")
+    insert_catalog_article(category=None)
+
+    assert count(engine, ArticleCatalogStore.count_by_category, CatalogCountQuery(language="en")) == {
+        "alpha": 1
+    }
+
+
+@pytest.mark.parametrize(("counter", "column"), COUNTERS)
+@pytest.mark.parametrize(
+    ("sort_at_from", "sort_at_to", "expected"),
+    [
+        pytest.param(JANUARY_2, None, {"alpha": 2}, id="from is inclusive"),
+        pytest.param(None, JANUARY_2, {"alpha": 1}, id="to is exclusive"),
+        pytest.param(JANUARY_1, JANUARY_3, {"alpha": 2}, id="both bounds"),
+        pytest.param(JANUARY_2, JANUARY_2, {}, id="empty range"),
+    ],
+)
+def test_count_keeps_only_articles_inside_the_sort_at_range(
+    engine: Engine,
+    insert_catalog_article: Callable[..., int],
+    counter: Counter,
+    column: str,
+    sort_at_from: datetime | None,
+    sort_at_to: datetime | None,
+    expected: dict[str, int],
+) -> None:
+    for published_at in (JANUARY_1, JANUARY_2, JANUARY_3):
+        insert_catalog_article(**{column: "alpha", "published_at": published_at})
+    query = CatalogCountQuery(language="en", sort_at_from=sort_at_from, sort_at_to=sort_at_to)
+
+    assert count(engine, counter, query) == expected
+
+
+@pytest.mark.parametrize(("counter", "column"), COUNTERS)
+def test_count_returns_nothing_when_no_article_is_eligible(
+    engine: Engine, counter: Counter, column: str
+) -> None:
+    assert count(engine, counter, CatalogCountQuery(language="en")) == {}
+
+
+@pytest.mark.parametrize("language", ["en", "vi"])
+@pytest.mark.parametrize(("counter", "column"), COUNTERS)
+def test_count_matches_the_number_of_articles_list_page_returns(
+    engine: Engine,
+    insert_catalog_article: Callable[..., int],
+    counter: Counter,
+    column: str,
+    language: str,
+) -> None:
+    insert_catalog_article(**{column: "alpha", "published_at": JANUARY_1})
+    insert_catalog_article(**{column: "alpha", "published_at": JANUARY_2})
+    insert_catalog_article(**{column: "alpha", "published_at": JANUARY_2, "thumbnail": None})
+    insert_catalog_article(**{column: "alpha", "published_at": JANUARY_2, "content_en": None})
+    insert_catalog_article(**{column: "alpha", "published_at": JANUARY_2, "title_vi": None})
+    insert_catalog_article(**{column: "alpha", "published_at": JANUARY_3})
+    insert_catalog_article(**{column: "beta", "published_at": None, "created_at": JANUARY_2})
+    insert_catalog_article(**{column: "beta", "published_at": JANUARY_2, "summary_vi": None})
+    count_query = CatalogCountQuery(language=language, sort_at_from=JANUARY_2, sort_at_to=JANUARY_3)
+    page_query = CatalogPageQuery(
+        language=language, page_size=1000, sort_at_from=JANUARY_2, sort_at_to=JANUARY_3
+    )
+
+    counts = count(engine, counter, count_query)
+
+    for value in ("alpha", "beta"):
+        listed = list_ids(engine, replace(page_query, **{column: value}))
+        assert counts.get(value, 0) == len(listed), value

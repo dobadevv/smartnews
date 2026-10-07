@@ -11,6 +11,51 @@ import sqlalchemy
 from smartnews_common.db.generated import models
 
 
+COUNT_CATALOG_ARTICLES_BY_CATEGORY = """-- name: count_catalog_articles_by_category \\:many
+SELECT category, COUNT(*)\\:\\:bigint AS article_count
+FROM article_catalog
+WHERE (
+        (:p1\\:\\:text = 'en'
+         AND title_en IS NOT NULL AND summary_en IS NOT NULL AND content_en IS NOT NULL)
+     OR (:p1\\:\\:text = 'vi'
+         AND title_vi IS NOT NULL AND summary_vi IS NOT NULL AND content_vi IS NOT NULL)
+      )
+  AND thumbnail IS NOT NULL
+  AND category IS NOT NULL
+  AND (:p2\\:\\:timestamptz IS NULL OR sort_at >= :p2\\:\\:timestamptz)
+  AND (:p3\\:\\:timestamptz   IS NULL OR sort_at <  :p3\\:\\:timestamptz)
+GROUP BY category
+"""
+
+
+@dataclasses.dataclass()
+class CountCatalogArticlesByCategoryRow:
+    category: Optional[str]
+    article_count: int
+
+
+COUNT_CATALOG_ARTICLES_BY_SOURCE = """-- name: count_catalog_articles_by_source \\:many
+SELECT source, COUNT(*)\\:\\:bigint AS article_count
+FROM article_catalog
+WHERE (
+        (:p1\\:\\:text = 'en'
+         AND title_en IS NOT NULL AND summary_en IS NOT NULL AND content_en IS NOT NULL)
+     OR (:p1\\:\\:text = 'vi'
+         AND title_vi IS NOT NULL AND summary_vi IS NOT NULL AND content_vi IS NOT NULL)
+      )
+  AND thumbnail IS NOT NULL
+  AND (:p2\\:\\:timestamptz IS NULL OR sort_at >= :p2\\:\\:timestamptz)
+  AND (:p3\\:\\:timestamptz   IS NULL OR sort_at <  :p3\\:\\:timestamptz)
+GROUP BY source
+"""
+
+
+@dataclasses.dataclass()
+class CountCatalogArticlesBySourceRow:
+    source: str
+    article_count: int
+
+
 GET_CATALOG_ARTICLE = """-- name: get_catalog_article \\:one
 SELECT id, title_en, title_vi, summary_en, summary_vi, content_en, content_vi, thumbnail, published_at, url, source, category, sort_at
 FROM article_catalog
@@ -67,6 +112,22 @@ class ListCatalogArticlesRow:
 class Querier:
     def __init__(self, conn: sqlalchemy.engine.Connection):
         self._conn = conn
+
+    def count_catalog_articles_by_category(self, *, language: str, sort_at_from: Optional[datetime.datetime], sort_at_to: Optional[datetime.datetime]) -> Iterator[CountCatalogArticlesByCategoryRow]:
+        result = self._conn.execute(sqlalchemy.text(COUNT_CATALOG_ARTICLES_BY_CATEGORY), {"p1": language, "p2": sort_at_from, "p3": sort_at_to})
+        for row in result:
+            yield CountCatalogArticlesByCategoryRow(
+                category=row[0],
+                article_count=row[1],
+            )
+
+    def count_catalog_articles_by_source(self, *, language: str, sort_at_from: Optional[datetime.datetime], sort_at_to: Optional[datetime.datetime]) -> Iterator[CountCatalogArticlesBySourceRow]:
+        result = self._conn.execute(sqlalchemy.text(COUNT_CATALOG_ARTICLES_BY_SOURCE), {"p1": language, "p2": sort_at_from, "p3": sort_at_to})
+        for row in result:
+            yield CountCatalogArticlesBySourceRow(
+                source=row[0],
+                article_count=row[1],
+            )
 
     def get_catalog_article(self, *, article_id: int, language: str) -> Optional[models.ArticleCatalog]:
         row = self._conn.execute(sqlalchemy.text(GET_CATALOG_ARTICLE), {"p1": article_id, "p2": language}).first()
