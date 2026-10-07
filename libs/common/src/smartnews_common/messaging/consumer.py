@@ -73,6 +73,21 @@ class Consumer[M: BaseModel]:
                 )
                 self._stop_requested.wait(RECONNECT_DELAY_SECONDS)
 
+    def consume_one(self) -> None:
+        """Handle the first message waiting in the queue, if any, then return."""
+        connection = pika.BlockingConnection(connection_parameters(self._rabbitmq_url))
+        try:
+            channel = open_confirmed_channel(connection)
+            self.declare_topology(channel)
+            method, properties, body = channel.basic_get(self._queue)
+            if method is None or properties is None or body is None:
+                logger.info("no message waiting on %s", self._queue)
+                return
+            self.handle_delivery(channel, method, properties, body)
+        finally:
+            if connection.is_open:
+                connection.close()
+
     def stop(self) -> None:
         self._stop_requested.set()
         connection, channel = self._connection, self._channel
@@ -88,7 +103,7 @@ class Consumer[M: BaseModel]:
     def handle_delivery(
         self,
         channel: BlockingChannel,
-        method: Basic.Deliver,
+        method: Basic.Deliver | Basic.GetOk,
         properties: pika.BasicProperties,
         body: bytes,
     ) -> None:
@@ -154,7 +169,9 @@ class Consumer[M: BaseModel]:
             raise
         logger.info("routed message on %s: %s to %s", self._queue, label, destination)
 
-    def _ack(self, channel: BlockingChannel, method: Basic.Deliver, label: str) -> None:
+    def _ack(
+        self, channel: BlockingChannel, method: Basic.Deliver | Basic.GetOk, label: str
+    ) -> None:
         try:
             channel.basic_ack(delivery_tag=method.delivery_tag)
         except Exception:

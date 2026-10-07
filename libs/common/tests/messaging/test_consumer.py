@@ -187,6 +187,54 @@ def test_stop_before_run_returns_immediately(rabbitmq_url: str, unique_queue: st
     consumer.run()
 
 
+def test_consume_one_handles_only_the_first_queued_message(
+    rabbitmq_url: str,
+    rabbitmq_channel: BlockingChannel,
+    unique_queue: str,
+    message_count: Callable[[str], int],
+) -> None:
+    handler = RecordingHandler()
+    consumer = make_consumer(rabbitmq_url, unique_queue, handler)
+    consumer.declare_topology(rabbitmq_channel)
+    publisher = Publisher(rabbitmq_channel)
+    publisher.publish(unique_queue, Ping(value="first"))
+    publisher.publish(unique_queue, Ping(value="second"))
+
+    consumer.consume_one()
+
+    assert [message.value for message, _ in handler.calls] == ["first"]
+    assert message_count(unique_queue) == 1
+
+
+def test_consume_one_returns_immediately_on_an_empty_queue(
+    rabbitmq_url: str, rabbitmq_channel: BlockingChannel, unique_queue: str
+) -> None:
+    handler = RecordingHandler()
+    consumer = make_consumer(rabbitmq_url, unique_queue, handler)
+    consumer.declare_topology(rabbitmq_channel)
+
+    consumer.consume_one()
+
+    assert handler.calls == []
+
+
+def test_consume_one_routes_a_failed_message_to_retry(
+    rabbitmq_url: str,
+    rabbitmq_channel: BlockingChannel,
+    unique_queue: str,
+    wait_for_message: Callable,
+) -> None:
+    consumer = make_consumer(rabbitmq_url, unique_queue, RecordingHandler(error=RuntimeError("boom")))
+    consumer.declare_topology(rabbitmq_channel)
+    body = Ping(value="a").model_dump_json().encode()
+    Publisher(rabbitmq_channel).publish_body(unique_queue, body, attempt=1)
+
+    consumer.consume_one()
+
+    _, _, retried = wait_for_message(retry_queue_name(unique_queue, ONE_MINUTE))
+    assert retried == body
+
+
 @pytest.mark.parametrize("error", [RuntimeError("bug"), ValueError("bad value")])
 def test_handle_delivery_retries_any_handler_exception(
     rabbitmq_url: str,

@@ -10,6 +10,7 @@ class FakeConsumer:
     def __init__(self, error: Exception | None = None) -> None:
         self.started = threading.Event()
         self.stopped = threading.Event()
+        self.consumed_one = threading.Event()
         self._error = error
 
     def run(self) -> None:
@@ -20,6 +21,11 @@ class FakeConsumer:
 
     def stop(self) -> None:
         self.stopped.set()
+
+    def consume_one(self) -> None:
+        if self._error is not None:
+            raise self._error
+        self.consumed_one.set()
 
 
 def run_in_background(group: ConsumerGroup) -> tuple[threading.Thread, list[BaseException]]:
@@ -60,3 +66,20 @@ def test_run_stops_the_other_consumers_and_reraises_when_one_fails() -> None:
     assert not thread.is_alive()
     assert healthy.stopped.is_set()
     assert [str(error) for error in errors] == ["boom"]
+
+
+def test_consume_one_lets_every_consumer_take_one_message() -> None:
+    first, second = FakeConsumer(), FakeConsumer()
+
+    ConsumerGroup([first, second]).consume_one()
+
+    assert first.consumed_one.is_set() and second.consumed_one.is_set()
+
+
+def test_consume_one_reraises_a_failure_after_the_other_consumers_ran() -> None:
+    failing, healthy = FakeConsumer(error=RuntimeError("boom")), FakeConsumer()
+
+    with pytest.raises(RuntimeError, match="boom"):
+        ConsumerGroup([failing, healthy]).consume_one()
+
+    assert healthy.consumed_one.is_set()

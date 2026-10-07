@@ -1,12 +1,17 @@
+import logging
 from collections.abc import Sequence
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from typing import Protocol
+
+logger = logging.getLogger(__name__)
 
 
 class RunnableConsumer(Protocol):
     def run(self) -> None: ...
 
     def stop(self) -> None: ...
+
+    def consume_one(self) -> None: ...
 
 
 class ConsumerGroup:
@@ -27,6 +32,22 @@ class ConsumerGroup:
             self.stop()
         for future in futures:
             future.result()
+
+    def consume_one(self) -> None:
+        """Let each consumer handle one message from its queue in turn, then return.
+
+        Every consumer runs even if an earlier one fails; the first failure is
+        re-raised at the end.
+        """
+        first_error: Exception | None = None
+        for consumer in self._consumers:
+            try:
+                consumer.consume_one()
+            except Exception as error:
+                logger.exception("consuming one message failed")
+                first_error = first_error or error
+        if first_error is not None:
+            raise first_error
 
     def stop(self) -> None:
         for consumer in self._consumers:
