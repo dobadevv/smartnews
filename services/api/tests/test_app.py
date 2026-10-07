@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from flask.testing import FlaskClient
@@ -9,6 +9,7 @@ from smartnews_api.language import Language, LocalizedArticle, LocalizedArticleD
 from smartnews_api.requests import ListArticlesQuery, PageSizeLimits
 
 ALLOWED_ORIGIN = "https://reader.example"
+INDOCHINA = timezone(timedelta(hours=7))
 
 ARTICLE = LocalizedArticle(
     id=7,
@@ -94,6 +95,19 @@ def test_list_articles_passes_the_parsed_parameters_to_the_reader(
     )
 
 
+def test_list_articles_passes_the_parsed_sort_at_bounds_to_the_reader(
+    client: FlaskClient, reader: FakeArticleReader
+) -> None:
+    client.get(
+        "/articles?lang=en&sort_at_from=2026-10-01T00:00:00%2B07:00&sort_at_to=2026-10-08T00:00:00Z"
+    )
+
+    [query] = reader.list_queries
+    assert (query.sort_at_from, query.sort_at_to) == (
+        datetime(2026, 10, 1, tzinfo=INDOCHINA), datetime(2026, 10, 8, tzinfo=UTC)
+    )
+
+
 def test_list_articles_returns_an_empty_page_when_nothing_matches(client: FlaskClient) -> None:
     response = client.get("/articles?lang=en")
 
@@ -131,6 +145,17 @@ def test_get_article_returns_the_localized_detail(
         pytest.param("GET", "/articles?lang=en&limit=0", 400, "invalid_limit", id="limit below one"),
         pytest.param("GET", "/articles?lang=en&limit=101", 400, "invalid_limit", id="limit above maximum"),
         pytest.param("GET", "/articles?lang=en&cursor=garbage", 400, "invalid_cursor", id="malformed cursor"),
+        pytest.param(
+            "GET", "/articles?lang=en&sort_at_from=yesterday", 400, "invalid_sort_at", id="list invalid sort_at"
+        ),
+        pytest.param(
+            "GET", "/articles?lang=en&sort_at_from=2026-10-01T00:00:00+07:00", 400, "invalid_sort_at",
+            id="list unencoded plus in sort_at",
+        ),
+        pytest.param(
+            "GET", "/articles?lang=en&sort_at_from=2026-10-02T00:00:00Z&sort_at_to=2026-10-01T00:00:00Z",
+            400, "invalid_sort_at", id="list sort_at_from after sort_at_to",
+        ),
         pytest.param("GET", "/articles/7", 400, "invalid_language", id="detail without language"),
         pytest.param("GET", "/articles/7?lang=en", 404, "article_not_found", id="detail not found"),
         pytest.param("GET", "/articles/abc?lang=en", 404, "not_found", id="detail non-numeric id"),
