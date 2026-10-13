@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 from smartnews_common.models import Article
 from smartnews_fetcher.config import SourceConfig
 from smartnews_fetcher.rss import RssFetcher
@@ -116,3 +117,70 @@ def test_fetch_stamps_the_source_category_on_every_article() -> None:
     articles = RssFetcher().fetch(source)
 
     assert [article.category for article in articles] == ["architecture"]
+
+
+SAMPLE_ATOM_FEED_WITH_ONLY_UPDATED = """<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<title>Releases</title>
+<entry>
+<title>v1.2.3</title>
+<link rel="alternate" href="https://example.com/releases/v1.2.3"/>
+<updated>2026-10-10T05:28:41Z</updated>
+</entry>
+</feed>
+"""
+
+
+def test_fetch_falls_back_to_the_updated_date_when_published_is_missing() -> None:
+    source = SourceConfig(
+        name="example-releases", url=SAMPLE_ATOM_FEED_WITH_ONLY_UPDATED
+    )
+
+    articles = RssFetcher().fetch(source)
+
+    assert articles[0].published_at == datetime(2026, 10, 10, 5, 28, 41, tzinfo=UTC)
+
+
+def feed_with_pub_date(pub_date: str) -> str:
+    return f"""<?xml version="1.0"?>
+<rss version="2.0">
+<channel>
+<title>Example News</title>
+<item>
+<title>Hello World</title>
+<link>https://example.com/hello-world</link>
+<pubDate>{pub_date}</pubDate>
+</item>
+</channel>
+</rss>
+"""
+
+
+@pytest.mark.parametrize(
+    ("pub_date", "timezone", "expected"),
+    [
+        pytest.param(
+            "10/8/2026 2:06:00 PM",
+            "Asia/Ho_Chi_Minh",
+            datetime(2026, 10, 8, 7, 6, tzinfo=UTC),
+            id="month-first 12-hour date in the source timezone",
+        ),
+        pytest.param(
+            "9/29/2026 7:30:00 AM",
+            "UTC",
+            datetime(2026, 9, 29, 7, 30, tzinfo=UTC),
+            id="month-first 12-hour date with a plain space defaults to UTC",
+        ),
+        pytest.param("not a date", "UTC", None, id="unrecognised date stays unknown"),
+    ],
+)
+def test_fetch_parses_month_first_dates_without_an_offset(
+    pub_date: str, timezone: str, expected: datetime | None
+) -> None:
+    source = SourceConfig(
+        name="example-news", url=feed_with_pub_date(pub_date), timezone=timezone
+    )
+
+    articles = RssFetcher().fetch(source)
+
+    assert articles[0].published_at == expected

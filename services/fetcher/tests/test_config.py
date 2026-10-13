@@ -27,6 +27,7 @@ sources:
     enabled: false
     max_posts: 2
     lookback_days: 3
+    timezone: Asia/Ho_Chi_Minh
 """,
     )
 
@@ -41,6 +42,7 @@ sources:
             enabled=False,
             max_posts=2,
             lookback_days=3,
+            timezone="Asia/Ho_Chi_Minh",
         )
     ]
 
@@ -53,7 +55,8 @@ def test_source_config_defaults() -> None:
         source.max_posts,
         source.lookback_days,
         source.category,
-    ) == (True, None, 7, None)
+        source.timezone,
+    ) == (True, None, 7, None, "UTC")
 
 
 def test_fetcher_config_defaults_to_seven_am_asia_ho_chi_minh() -> None:
@@ -65,6 +68,11 @@ def test_fetcher_config_defaults_to_seven_am_asia_ho_chi_minh() -> None:
 def test_fetcher_config_rejects_an_unknown_timezone() -> None:
     with pytest.raises(ValidationError):
         FetcherConfig(timezone="Not/AZone", sources=[])
+
+
+def test_source_config_rejects_an_unknown_timezone() -> None:
+    with pytest.raises(ValidationError):
+        SourceConfig(name="s", url="https://a", timezone="Not/AZone")
 
 
 def test_fetcher_config_defaults_run_once_to_false() -> None:
