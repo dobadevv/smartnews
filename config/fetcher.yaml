@@ -4,7 +4,7 @@ timezone: Asia/Ho_Chi_Minh
 
 # When true, the fetcher runs a single cycle immediately and exits instead
 # of looping daily at run_at. Useful for a manual/one-off trigger.
-run_once: false
+run_once: true
 
 sources:
   # ===== Architecture =====
@@ -12,351 +12,468 @@ sources:
     url: https://hnrss.org/frontpage?points=150
     category: architecture
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: lobsters-distributed
     url: https://lobste.rs/t/distributed.rss
     category: architecture
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: cloudflare-blog
     url: https://blog.cloudflare.com/rss/
     category: architecture
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: aws-architecture-blog
     url: https://aws.amazon.com/blogs/architecture/feed/
     category: architecture
     enabled: true
-    max_posts: 1
-    lookback_days: 7
-
-  - name: infoq
-    url: https://www.infoq.com/feed
-    category: architecture
-    enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: the-new-stack
     url: https://thenewstack.io/feed/
     category: architecture
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== Runtime & Language =====
   - name: go-blog
     url: https://go.dev/blog/feed.atom
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: nodejs-releases
     url: https://nodejs.org/en/feed/releases.xml
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: bun-releases
     url: https://github.com/oven-sh/bun/releases.atom
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: deno-releases
     url: https://github.com/denoland/deno/releases.atom
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: python-insider
     url: https://pythoninsider.blogspot.com/feeds/posts/default
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: spring-blog
     url: https://spring.io/blog.atom
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: nestjs-releases
     url: https://github.com/nestjs/nest/releases.atom
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: typescript-blog
     url: https://devblogs.microsoft.com/typescript/feed/
     category: runtime
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== Frontend & Mobile =====
   - name: react-blog
     url: https://react.dev/rss.xml
     category: frontend
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: nextjs-releases
     url: https://github.com/vercel/next.js/releases.atom
     category: frontend
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: react-native-blog
     url: https://reactnative.dev/blog/rss.xml
     category: frontend
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: flutter-releases
     url: https://github.com/flutter/flutter/releases.atom
     category: frontend
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== Database & Messaging =====
   - name: postgresql-news
     url: https://www.postgresql.org/news.rss
     category: data
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: mysql-releases
     url: https://blogs.oracle.com/mysql/rss
     category: data
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: mongodb-blog
     url: https://www.mongodb.com/blog/rss
     category: data
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: redis-blog
     url: https://redis.io/blog/feed/
     category: data
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: kafka-tags
     url: https://github.com/apache/kafka/tags.atom
     category: data
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: rabbitmq-blog
     url: https://www.rabbitmq.com/blog/feed.xml
     category: data
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: elastic-blog
     url: https://www.elastic.co/blog/feed
     category: data
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== Cloud =====
   - name: aws-whats-new
     url: https://aws.amazon.com/about-aws/whats-new/recent/feed/
     category: cloud
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: gcp-release-notes
     url: https://cloud.google.com/feeds/gcp-release-notes.xml
     category: cloud
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: azure-updates
     url: https://azure.microsoft.com/en-us/updates/feed/
     category: cloud
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== Observability =====
   - name: grafana-blog
     url: https://grafana.com/blog/index.xml
     category: observability
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: prometheus-blog
     url: https://prometheus.io/blog/feed.xml
     category: observability
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: loki-releases
     url: https://github.com/grafana/loki/releases.atom
     category: observability
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== LLM / AI Agent =====
   - name: hn-ai
     url: https://hnrss.org/newest?q=LLM+OR+agent+OR+MCP+OR+Claude+OR+GPT+OR+Gemini&points=80
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: lobsters-ai
     url: https://lobste.rs/t/ai.rss
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: openai-news
     url: https://openai.com/news/rss.xml
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: google-deepmind
     url: https://deepmind.google/blog/rss.xml
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: huggingface-blog
     url: https://huggingface.co/blog/feed.xml
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
-
-  - name: langchain-blog
-    url: https://blog.langchain.dev/rss/
-    category: ai
-    enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: latent-space
     url: https://www.latent.space/feed
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: techcrunch-ai
     url: https://techcrunch.com/category/artificial-intelligence/feed/
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: verge-ai
     url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
     category: ai
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== Crypto =====
-  - name: coindesk
-    url: https://www.coindesk.com/arc/outboundfeeds/rss/
-    category: crypto
-    enabled: true
-    max_posts: 1
-    lookback_days: 7
-
   - name: cointelegraph
     url: https://cointelegraph.com/rss
     category: crypto
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: the-block
     url: https://www.theblock.co/rss.xml
     category: crypto
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== Stock =====
   - name: cnbc-markets
     url: https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664
     category: stocks
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: marketwatch
     url: https://feeds.content.dowjones.io/public/rss/mw_topstories
     category: stocks
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: cafef-chung-khoan
     url: https://cafef.vn/thi-truong-chung-khoan.rss
     category: stocks
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   # ===== World Politics =====
   - name: bbc-world
     url: https://feeds.bbci.co.uk/news/world/rss.xml
     category: world
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: aljazeera
     url: https://www.aljazeera.com/xml/rss/all.xml
     category: world
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
   - name: guardian-world
     url: https://www.theguardian.com/world/rss
     category: world
     enabled: true
-    max_posts: 1
-    lookback_days: 7
+    max_posts: 100
+    lookback_days: 15
 
+  # ===== Real Estate =====
+  - name: vnexpress-bat-dong-san
+    url: https://vnexpress.net/rss/bat-dong-san.rss
+    category: real-estate
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: tuoitre-nha-dat
+    url: https://tuoitre.vn/rss/nha-dat.rss
+    category: real-estate
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+    timezone: Asia/Ho_Chi_Minh
+
+  - name: dantri-bat-dong-san
+    url: https://dantri.com.vn/rss/bat-dong-san.rss
+    category: real-estate
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: vietnamnet-bat-dong-san
+    url: https://vietnamnet.vn/rss/bat-dong-san.rss
+    category: real-estate
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  # ===== Tech Viet Nam =====
+  - name: vnexpress-so-hoa
+    url: https://vnexpress.net/rss/so-hoa.rss
+    category: tech-vietnam
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: tuoitre-nhip-song-so
+    url: https://tuoitre.vn/rss/nhip-song-so.rss
+    category: tech-vietnam
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+    timezone: Asia/Ho_Chi_Minh
+
+  # ===== Tech Global =====
+  - name: hn-frontpage
+    url: https://hnrss.org/frontpage?points=100
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: lobsters
+    url: https://lobste.rs/rss
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: techcrunch
+    url: https://techcrunch.com/feed/
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: the-verge
+    url: https://www.theverge.com/rss/index.xml
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: ars-technica
+    url: https://feeds.arstechnica.com/arstechnica/index
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: dev-to
+    url: https://dev.to/feed
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: golang-weekly
+    url: https://golangweekly.com/rss
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: node-weekly
+    url: https://nodeweekly.com/rss
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: github-blog
+    url: https://github.blog/feed/
+    category: tech-global
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  # ===== GitHub Trending =====
+  - name: github-trending-all
+    url: https://mshibanami.github.io/GitHubTrendingRSS/daily/all.xml
+    category: github-trending
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: github-trending-go
+    url: https://mshibanami.github.io/GitHubTrendingRSS/daily/go.xml
+    category: github-trending
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: github-trending-typescript
+    url: https://mshibanami.github.io/GitHubTrendingRSS/daily/typescript.xml
+    category: github-trending
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
+
+  - name: github-trending-python-weekly
+    url: https://mshibanami.github.io/GitHubTrendingRSS/weekly/python.xml
+    category: github-trending
+    enabled: true
+    max_posts: 100
+    lookback_days: 15
