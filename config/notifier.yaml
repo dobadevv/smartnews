@@ -1,6 +1,6 @@
 notifiers:
   discord:
-    enabled: true
+    enabled: false
   telegram:
-    enabled: true
+    enabled: false
 
