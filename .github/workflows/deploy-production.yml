@@ -98,6 +98,7 @@ jobs:
             docker pull ${IMAGE_BASE}-migrate:${IMAGE_TAG}
 
             docker run --rm \
+              --network postgres \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               ${IMAGE_BASE}-migrate:${IMAGE_TAG} alembic upgrade head
           "
@@ -143,16 +144,19 @@ jobs:
             docker rm -f smartnews-fetcher smartnews-crawler smartnews-transformer smartnews-notifier smartnews-api smartnews-redriver 2>/dev/null || true
 
             docker run -d --name smartnews-fetcher --restart unless-stopped \
+              --network postgres --network rabbitmq \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               ${IMAGE_BASE}-fetcher:${IMAGE_TAG} smartnews-fetcher
 
             docker run -d --name smartnews-crawler --restart unless-stopped \
+              --network postgres --network rabbitmq \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               ${IMAGE_BASE}-crawler:${IMAGE_TAG} smartnews-crawler
 
             docker run -d --name smartnews-transformer --restart unless-stopped \
+              --network postgres \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               -e GEMINI_API_KEY='${{ secrets.GEMINI_API_KEY }}' \
@@ -161,6 +165,7 @@ jobs:
               ${IMAGE_BASE}-transformer:${IMAGE_TAG} smartnews-transformer
 
             docker run -d --name smartnews-notifier --restart unless-stopped \
+              --network postgres --network rabbitmq \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               -e DISCORD_WEBHOOK_URL='${{ secrets.DISCORD_WEBHOOK_URL }}' \
@@ -170,12 +175,14 @@ jobs:
 
             # Published on localhost only; the VPS reverse proxy forwards to it.
             docker run -d --name smartnews-api --restart unless-stopped \
+              --network smartnews --network postgres \
               -p 127.0.0.1:8000:8000 \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               ${IMAGE_BASE}-api:${IMAGE_TAG} \
               gunicorn --bind 0.0.0.0:8000 --workers 4 'smartnews_api.wsgi:build_app()'
 
             docker run -d --name smartnews-redriver --restart unless-stopped \
+              --network postgres --network rabbitmq \
               -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               -e RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
               ${IMAGE_BASE}-redriver:${IMAGE_TAG} smartnews-redriver
